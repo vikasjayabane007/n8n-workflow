@@ -1,0 +1,989 @@
+{
+  "name": "US Engineering Job Monitor — 30 Minutes (verified-source starter)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "f9dfcd0e-f61e-4544-9aa0-6eef3521a036",
+      "name": "Every 30 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.api_url }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "e3a00d8c-3383-4cf0-9a76-ac1f6269e31e",
+      "name": "Fetch careers API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst responses = $input.all();\nconst sources = $(\"Company sources\").all();\nconst results = [];\n\nfor (let i = 0; i < responses.length; i++) {\n  const response = responses[i];\n\n  // Identify which company produced this API response\n  const sourceIndex = response.pairedItem?.item ?? i;\n  const source = sources[sourceIndex]?.json;\n\n  if (!source) {\n    throw new Error(`Missing company source for response ${i}`);\n  }\n\n  const raw = response.json;\n  const isLever = source.ats === \"lever\";\n\n  const jobs = isLever\n    ? (Array.isArray(raw) ? raw : raw.data || [])\n    : (raw.jobs || []);\n\n  if (!Array.isArray(jobs)) {\n    throw new Error(`Invalid jobs array for ${source.company}`);\n  }\n\n  for (const j of jobs) {\n    const description = String(\n      isLever\n        ? (j.descriptionPlain || j.description || \"\")\n        : (j.content || \"\")\n    )\n      .replace(/&lt;/gi, \"<\")\n      .replace(/&gt;/gi, \">\")\n      .replace(/<[^>]*>/g, \" \")\n      .replace(/&nbsp;|&#160;/gi, \" \")\n      .replace(/&amp;/gi, \"&\")\n      .replace(/&#39;|&apos;/gi, \"'\")\n      .replace(/&quot;/gi, '\"')\n      .replace(/\\s+/g, \" \")\n      .trim();\n\n    results.push({\n      json: {\n        job_key: `${source.company}:${source.ats}:${j.id}`,\n        company: source.company,\n        job_title: isLever ? (j.text || \"\") : (j.title || \"\"),\n        location: isLever\n          ? (j.categories?.location || \"\")\n          : (j.location?.name || \"\"),\n        apply_url: isLever\n          ? (j.hostedUrl || j.applyUrl || \"\")\n          : (j.absolute_url || \"\"),\n        posted_date: isLever\n          ? (j.createdAt\n              ? new Date(j.createdAt).toISOString()\n              : \"\")\n          : (j.first_published || \"\"),\n        updated_at: isLever\n          ? \"\"\n          : (j.updated_at || \"\"),\n        description: description.slice(0, 13000),\n        first_seen: new Date().toISOString(),\n        match_score: 0,\n        sponsorship_status: \"not_specified\",\n        reason: \"\",\n        notified: false\n      },\n      pairedItem: {\n        item: i\n      }\n    });\n  }\n}\n\nreturn results;\n"
+      },
+      "id": "f40d7732-c35d-4b00-bcbe-53d301b3541d",
+      "name": "Normalize ATS jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst jobs = $input.all();\n\n// ============================================\n// TARGET JOB TITLES\n// ============================================\n\nconst target =\n  /\\b(software|java|python|backend|back.end|full.stack|developer|application engineer|api engineer|microservices|data engineer|data engineering|data platform|databricks|pyspark|spark engineer|cloud|aws|azure|devops|etl|analytics engineer|integration engineer|platform engineer|machine learning engineer|ml engineer|site reliability engineer|sre|infrastructure engineer|systems engineer|database engineer|data scientist)\\b/i;\n\n// ============================================\n// EXCLUDED JOB TITLES\n// ============================================\n\nconst reject =\n  /\\b(intern|internship|director|vice president|vp|chief|recruiter|sales engineer|support engineer|principal|staff|engineering manager)\\b/i;\n\n// ============================================\n// US STATE ABBREVIATIONS\n// ============================================\n\nconst usStates = new Set([\n  \"AL\",\"AK\",\"AZ\",\"AR\",\"CA\",\"CO\",\"CT\",\"DE\",\"FL\",\"GA\",\n  \"HI\",\"ID\",\"IL\",\"IN\",\"IA\",\"KS\",\"KY\",\"LA\",\"ME\",\"MD\",\n  \"MA\",\"MI\",\"MN\",\"MS\",\"MO\",\"MT\",\"NE\",\"NV\",\"NH\",\"NJ\",\n  \"NM\",\"NY\",\"NC\",\"ND\",\"OH\",\"OK\",\"OR\",\"PA\",\"RI\",\"SC\",\n  \"SD\",\"TN\",\"TX\",\"UT\",\"VT\",\"VA\",\"WA\",\"WV\",\"WI\",\"WY\",\"DC\"\n]);\n\n// ============================================\n// FULL US STATE NAMES\n// ============================================\n\nconst usStateNames = [\n  \"Alabama\",\"Alaska\",\"Arizona\",\"Arkansas\",\"California\",\n  \"Colorado\",\"Connecticut\",\"Delaware\",\"Florida\",\"Georgia\",\n  \"Hawaii\",\"Idaho\",\"Illinois\",\"Indiana\",\"Iowa\",\"Kansas\",\n  \"Kentucky\",\"Louisiana\",\"Maine\",\"Maryland\",\"Massachusetts\",\n  \"Michigan\",\"Minnesota\",\"Mississippi\",\"Missouri\",\"Montana\",\n  \"Nebraska\",\"Nevada\",\"New Hampshire\",\"New Jersey\",\n  \"New Mexico\",\"New York\",\"North Carolina\",\"North Dakota\",\n  \"Ohio\",\"Oklahoma\",\"Oregon\",\"Pennsylvania\",\"Rhode Island\",\n  \"South Carolina\",\"South Dakota\",\"Tennessee\",\"Texas\",\n  \"Utah\",\"Vermont\",\"Virginia\",\"Washington\",\"West Virginia\",\n  \"Wisconsin\",\"Wyoming\",\"District of Columbia\"\n];\n\n// ============================================\n// COMMON US CITIES\n// ============================================\n\nconst usCities = [\n  \"San Francisco\",\"San Jose\",\"Mountain View\",\"Sunnyvale\",\n  \"Palo Alto\",\"Santa Clara\",\"Redwood City\",\"Menlo Park\",\n  \"Los Angeles\",\"San Diego\",\"Sacramento\",\"Irvine\",\n  \"New York\",\"Brooklyn\",\"Seattle\",\"Bellevue\",\"Redmond\",\n  \"Austin\",\"Dallas\",\"Houston\",\"Plano\",\"Fort Worth\",\n  \"Boston\",\"Cambridge\",\"Chicago\",\"Denver\",\"Boulder\",\n  \"Atlanta\",\"Miami\",\"Orlando\",\"Tampa\",\n  \"Washington DC\",\"Washington D.C.\",\n  \"Arlington\",\"Reston\",\"Ashburn\",\"McLean\",\n  \"Kansas City\",\"Overland Park\",\"St. Louis\",\n  \"Philadelphia\",\"Pittsburgh\",\"Raleigh\",\"Durham\",\n  \"Charlotte\",\"Columbus\",\"Cincinnati\",\"Cleveland\",\n  \"Detroit\",\"Minneapolis\",\"Nashville\",\"Phoenix\",\n  \"Salt Lake City\",\"Portland\",\"Indianapolis\",\n  \"Madison\",\"Milwaukee\",\"Omaha\",\"Des Moines\",\n  \"San Antonio\",\"Richardson\",\"Irving\",\"Frisco\",\n  \"Bentonville\",\"Fayetteville\",\"Little Rock\",\n  \"Ann Arbor\",\"Boise\",\"Reno\",\"Las Vegas\",\n  \"Tempe\",\"Scottsdale\",\"Chandler\",\"Mesa\",\n  \"Wilmington\",\"Newark\",\"Jersey City\",\n  \"Baltimore\",\"Bethesda\",\"Rockville\",\n  \"Columbia\",\"Charleston\",\"Richmond\",\n  \"Huntsville\",\"Birmingham\",\"Louisville\",\n  \"Lexington\",\"Knoxville\",\"Chattanooga\",\n  \"Memphis\",\"New Orleans\",\"Baton Rouge\",\n  \"Jacksonville\",\"Fort Lauderdale\",\n  \"West Palm Beach\",\"Fort Myers\",\n  \"Rochester\",\"Albany\",\"Buffalo\",\"Syracuse\",\n  \"Princeton\",\"Bridgewater\",\"Edison\",\n  \"Fremont\",\"Pleasanton\",\"Dublin\",\n  \"Oakland\",\"Berkeley\",\"Emeryville\",\n  \"San Mateo\",\"San Bruno\",\"South San Francisco\",\n  \"Cupertino\",\"Milpitas\",\"Campbell\"\n];\n\n// ============================================\n// LOCATION HELPERS\n// ============================================\n\nfunction escapeRegex(value) {\n  return value.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\");\n}\n\nfunction containsPlace(text, place) {\n  const pattern = new RegExp(\n    `(^|[^a-z])${escapeRegex(place)}(?=$|[^a-z])`,\n    \"i\"\n  );\n\n  return pattern.test(text);\n}\n\nfunction isUSLocation(location) {\n  const loc = String(location || \"\").trim();\n\n  if (!loc) return false;\n\n  // Reject explicitly foreign locations\n  const foreign =\n    /\\b(canada|toronto|montreal|montréal|vancouver|ottawa|india|united kingdom|uk|london|europe|germany|france|poland|mexico|singapore|australia|netherlands|ireland|japan|brazil|china|spain|italy|sweden|switzerland|denmark|norway|finland|portugal|israel|united arab emirates|dubai|uae|south korea|taiwan|hong kong)\\b/i;\n\n  if (foreign.test(loc)) {\n    return false;\n  }\n\n  // Explicit US locations\n  if (/\\b(united states|usa|u\\.s\\.a\\.|u\\.s\\.)\\b/i.test(loc)) {\n    return true;\n  }\n\n  // City followed by US state abbreviation\n  const matches =\n    [...loc.matchAll(/,\\s*([A-Za-z]{2})\\b/g)];\n\n  if (matches.some(\n    m => usStates.has(m[1].toUpperCase())\n  )) {\n    return true;\n  }\n\n  // Full US state names\n  if (usStateNames.some(\n    state => containsPlace(loc, state)\n  )) {\n    return true;\n  }\n\n  // Recognized US city names\n  if (usCities.some(\n    city => containsPlace(loc, city)\n  )) {\n    return true;\n  }\n\n  return false;\n}\n\n// ============================================\n// FILTER AND RETURN JOBS\n// ============================================\n\nreturn jobs.filter(item => {\n  const job = item.json;\n\n  const title = String(job.job_title || \"\");\n  const location = String(job.location || \"\");\n\n  return (\n    target.test(title) &&\n    !reject.test(title) &&\n    isUSLocation(location)\n  );\n});\n"
+      },
+      "id": "b76853fe-381e-4d4e-8d43-88ae25920366",
+      "name": "Title & US prefilter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "monitored_jobs"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "job_key",
+              "keyValue": "={{ $json.job_key }}"
+            }
+          ]
+        }
+      },
+      "id": "f4974b65-a5ac-4e99-9c8a-faf9efa246fe",
+      "name": "Only unseen IDs",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $input.all().filter(item =>\n  item.json.qualified === true &&\n  ![\"unavailable\", \"restricted\"].includes(\n    item.json.sponsorship_status\n  )\n);\n"
+      },
+      "id": "8848e5d9-d292-43e3-8e64-392e0fabbb3b",
+      "name": "Keep qualified jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "you@example.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "c10ce6eb-f9b0-4aa3-a28c-6630bee93dec",
+      "name": "Gmail new-job alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2240,
+        -480
+      ],
+      "webhookId": "7cc4de07-155d-433d-bc16-4b57cf6708b0"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst jobs = $(\"Keep qualified jobs\").all();\n\nreturn jobs.map(item => ({\n  json: {\n    ...item.json,\n    notified: true\n  }\n}));\n"
+      },
+      "id": "eeba7692-dde7-4197-952f-3f4f9102b01f",
+      "name": "Prepare saved record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "monitored_jobs"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "job_key",
+              "keyValue": "={{ $json.job_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_key": "={{ $json.job_key }}",
+            "company": "={{ $json.company }}",
+            "job_title": "={{ $json.job_title }}",
+            "location": "={{ $json.location }}",
+            "apply_url": "={{ $json.apply_url }}",
+            "posted_date": "={{ $json.posted_date }}",
+            "first_seen": "={{ $json.first_seen }}",
+            "match_score": "={{ $json.match_score }}",
+            "sponsorship_status": "={{ $json.sponsorship_status }}",
+            "reason": "={{ $json.reason }}",
+            "notified": "={{ true }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "job_key",
+              "displayName": "job_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "apply_url",
+              "displayName": "apply_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "posted_date",
+              "displayName": "posted_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_seen",
+              "displayName": "first_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "match_score",
+              "displayName": "match_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sponsorship_status",
+              "displayName": "sponsorship_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "notified",
+              "displayName": "notified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b4f51245-faf4-41e3-9898-b4bbd4bc667f",
+      "name": "Save notified job",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2688,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n{{ JSON.stringify({\n  contents: [\n    {\n      parts: [\n        {\n          text: `You are an expert technical recruiter evaluating a\nUS-based engineering job for a candidate with\napproximately 5-6 years of combined software\nengineering and data engineering experience.\n\nThe candidate is targeting THREE EQUALLY IMPORTANT\ncareer tracks:\n\n1. SOFTWARE ENGINEERING\n2. FULL STACK ENGINEERING\n3. DATA ENGINEERING\n\nEvaluate the job against the career track that\nbest matches its actual responsibilities.\n\nDo not prioritize one career track over another.\n\n=============================================\nCANDIDATE PROFILE\n=============================================\n\nExperience:\nApproximately 5-6 years of professional\nsoftware engineering and data engineering\nexperience.\n\nEducation:\nMaster's degree in Computer Science.\n\nProgramming Languages:\nJava, Python, SQL, PySpark, Spark SQL.\n\nSoftware Development:\nObject-oriented programming,\nREST API development,\nSpring Boot, FastAPI,\nmicroservices, backend development,\napplication integrations,\ndistributed systems,\ndata structures and algorithms.\n\nDatabases:\nPostgreSQL, SQL Server,\nAurora PostgreSQL,\nrelational database design,\nSQL optimization and data modeling.\n\nAWS:\nAmazon S3,\nAWS Glue,\nAWS Lambda,\nAWS Step Functions,\nAmazon EMR,\nAmazon Athena,\nAmazon Redshift,\nAurora PostgreSQL,\nAmazon RDS,\nAWS DMS,\nIAM,\nCloudWatch.\n\nAzure:\nAzure Databricks,\nAzure Data Factory,\nADLS Gen2,\nAzure SQL,\nMicrosoft Fabric.\n\nData Engineering:\nApache Spark,\nPySpark,\nDelta Lake,\nUnity Catalog,\nBronze/Silver/Gold architecture,\nETL/ELT,\nCDC,\nincremental processing,\nbatch pipelines,\ndata transformations,\ndata quality,\ndata reconciliation.\n\nDevOps:\nGit,\nGitHub Actions,\nCI/CD,\nDocker,\nTerraform.\n\nAnalytics:\nPower BI,\nAmazon QuickSight,\nBirst Analytics.\n\nIMPORTANT:\nDo not assume the candidate has professional\nexperience in technologies not listed here.\n\n=============================================\nTRACK 1: SOFTWARE ENGINEERING\n=============================================\n\nTARGET ROLES:\n\nSoftware Engineer\nSoftware Developer\nSoftware Engineer I\nSoftware Engineer II\nSenior Software Engineer\nJava Developer\nJava Software Engineer\nPython Developer\nPython Software Engineer\nJava Backend Developer\nPython Backend Developer\nBackend Software Engineer\nApplication Developer\nAPI Developer\nMicroservices Developer\nCloud Software Engineer\n\nEVALUATION RULES:\n\n1. Java and Python are equally important\nprogramming languages.\n\n2. Generic Software Engineer roles are\nimportant targets.\n\n3. Strongly consider jobs requiring Java,\nPython, backend development, Spring Boot,\nFastAPI, REST APIs, SQL or microservices.\n\n4. Do not require Apache Spark, Databricks,\nPySpark or ETL experience for a software\nengineering position.\n\n5. Evaluate transferable backend development,\ncloud computing, database and programming skills.\n\n6. Consider jobs using frameworks or programming\nlanguages not explicitly listed if the core\nsoftware engineering requirements are transferable.\n\n7. Do not automatically reject a Software Engineer\nposition because it uses some unfamiliar technologies.\n\n8. Reject highly specialized roles where essential\nexpertise is substantially outside the candidate's\nbackground, such as:\n- iOS/Swift-only development\n- Android-only development\n- Embedded firmware\n- Robotics firmware\n- Game engine programming\n- Graphics engine development\n\n9. A Java or Python Software Engineer role\ncan receive an excellent match score even if\nthe job involves no data engineering.\n\n=============================================\nTRACK 2: FULL STACK ENGINEERING\n=============================================\n\nTARGET ROLES:\n\nFull Stack Developer\nFull Stack Engineer\nFull Stack Software Engineer\nJava Full Stack Developer\nPython Full Stack Developer\nBackend / Full Stack Developer\nFull Stack Application Developer\n\nRELEVANT SKILLS:\n\nBackend:\nJava,\nPython,\nSpring Boot,\nFastAPI,\nREST APIs,\nmicroservices,\nSQL,\nPostgreSQL,\nSQL Server.\n\nCloud:\nAWS,\nAzure,\nDocker,\nTerraform.\n\nDevelopment:\nGit,\nGitHub Actions,\nCI/CD,\napplication integrations.\n\nFrontend:\nThe candidate has backend and application\ndevelopment experience, but specific professional\nfrontend framework expertise is not established.\n\nFULL STACK EVALUATION RULES:\n\n1. Full Stack Engineering is an equally\nimportant career target.\n\n2. Strongly consider Java and Python full stack\nroles involving backend APIs, database development\nand cloud services.\n\n3. Consider jobs involving React, Angular,\nJavaScript, TypeScript, HTML or CSS.\n\n4. Do not assume professional expertise in\nReact, Angular, JavaScript or TypeScript\nunless explicitly supported by the profile.\n\n5. If the role is backend-heavy with moderate\nfrontend responsibilities, evaluate transferable\nskills positively.\n\n6. If the role requires extensive expert-level\nfrontend development as an essential qualification,\nreduce the match score accordingly.\n\n7. Do not reject a Java Full Stack Developer\nposition solely because it also mentions React\nor Angular.\n\n8. A backend-heavy Java/Python Full Stack\nposition can receive a strong or excellent score.\n\n=============================================\nTRACK 3: DATA ENGINEERING\n=============================================\n\nTARGET ROLES:\n\nData Engineer\nData Engineer II\nSenior Data Engineer\nAWS Data Engineer\nAzure Data Engineer\nDatabricks Data Engineer\nDatabricks Engineer\nSpark Engineer\nPySpark Engineer\nCloud Data Engineer\nData Platform Engineer\nETL Developer\nELT Developer\nData Integration Engineer\nAnalytics Engineer\n\nEVALUATION RULES:\n\n1. Strongly consider positions requiring\nAWS, Azure, Databricks, Spark, PySpark,\nPython, SQL, ETL/ELT or cloud data pipelines.\n\n2. Prioritize actual technical overlap with\nthe job requirements.\n\n3. Do not penalize a strong AWS Data Engineer\nrole because it does not use Azure.\n\n4. Do not penalize a strong Azure Data Engineer\nrole because it does not use AWS.\n\n5. Do not require Spring Boot or Java backend\ndevelopment for a Data Engineer position.\n\n6. Strong matches include combinations of:\n- Python and SQL\n- PySpark and Apache Spark\n- AWS Glue, S3, Redshift and Lambda\n- Azure Databricks and Azure Data Factory\n- Delta Lake and Databricks\n- ETL/ELT, CDC and data pipelines\n- Terraform and cloud infrastructure\n\n7. Evaluate experience with scalable data\nprocessing, orchestration, data quality,\ndata modeling and reconciliation.\n\n8. Data Engineering roles can receive excellent\nmatch scores without software application\ndevelopment responsibilities.\n\n=============================================\nEXPERIENCE REQUIREMENTS\n=============================================\n\n1. Prefer positions requiring approximately\n2-8 years of professional experience.\n\n2. Do not automatically reject Senior\nSoftware Engineer, Senior Full Stack Engineer\nor Senior Data Engineer positions.\n\n3. Evaluate actual experience requirements\nand the candidate's technical skills.\n\n4. Positions requiring 9+ years should\ngenerally be rejected unless there is clear\nevidence that the requirement is flexible\nand the overall match is especially strong.\n\n5. Reject Staff, Principal, Director,\nVice President and executive-level roles.\n\n6. Do not reject jobs merely because they\ninclude the word \"Senior\".\n\n=============================================\nWORK AUTHORIZATION REQUIREMENTS\n=============================================\n\nThe candidate is seeking US employment and\ncurrently uses F-1 OPT/STEM OPT work authorization.\n\nThe candidate may require future employer\nvisa sponsorship.\n\nReject a position if it explicitly states:\n- US citizenship is required\n- US permanent residency is required\n- Active security clearance is required\n- Security clearance eligibility requires citizenship\n- Visa sponsorship is unavailable\n- The employer cannot sponsor now or in the future\n- The employer does not accept candidates who\n  require future immigration sponsorship\n\nIf the job explicitly confirms sponsorship\navailability, set sponsorship_status\nto \"confirmed\".\n\nIf sponsorship is explicitly unavailable,\nset sponsorship_status to \"unavailable\"\nand qualified to false.\n\nIf sponsorship is not discussed, set\nsponsorship_status to \"not_specified\".\n\nDo not assume an employer sponsors simply\nbecause it is a large technology company.\n\nDo not reject a position merely because\nsponsorship information is missing.\n\n=============================================\nSCORING RULES\n=============================================\n\nEvaluate:\n\n- Job responsibilities\n- Technical skill overlap\n- Relevant professional experience\n- Seniority level\n- Required qualifications\n- Transferable engineering skills\n- Explicit work authorization restrictions\n\nMATCH SCORE:\n\n90-100:\nExcellent match.\nStrong alignment with the candidate's\nskills and reasonable experience requirements.\n\n75-89:\nStrong match.\nMost important skills align with\nsome manageable gaps.\n\n60-74:\nReasonable match.\nRelevant technical skills exist,\nbut meaningful gaps remain.\n\n40-59:\nWeak match.\nSeveral important required skills are missing.\n\n0-39:\nPoor match.\nThe role is substantially outside\nthe candidate's background.\n\nQUALIFICATION LOGIC:\n\nSet qualified=true only if:\n- match_score >= 70\n- The role aligns with at least one\n  of the three target tracks\n- Seniority is reasonably appropriate\n- No explicit work authorization exclusion exists\n- Essential job requirements are realistically met\n\nOtherwise set qualified=false.\n\nIMPORTANT:\nA Java/Python Software Engineer,\na Java/Python Full Stack Developer,\nand an AWS/Azure/Databricks Data Engineer\nmust all have equal opportunities\nto receive a high match score.\n\nDo not favor data engineering over\nsoftware engineering or vice versa.\n\nDo not invent candidate experience or\nemployer sponsorship policies.\n\n=============================================\nRESPONSE FORMAT\n=============================================\n\nReturn ONLY a valid JSON object with\nexactly these four fields:\n\n{\n  \"qualified\": true,\n  \"match_score\": 85,\n  \"sponsorship_status\": \"not_specified\",\n  \"reason\": \"Strong technical alignment with the role.\"\n}\n\nField requirements:\n\nqualified:\nBoolean true or false.\n\nmatch_score:\nInteger between 0 and 100.\n\nsponsorship_status:\nExactly one of:\n\"confirmed\"\n\"not_specified\"\n\"unavailable\"\n\nreason:\nA concise explanation of the technical match,\nany important skill gaps, and any explicit\nwork authorization restrictions.\n\nNo Markdown.\nNo code fences.\nNo additional explanations.\n\n=============================================\nJOB TO EVALUATE\n=============================================\n\n${JSON.stringify({\n  title: $json.job_title,\n  company: $json.company,\n  location: $json.location,\n  description: $json.description\n})}`\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0,\n    responseMimeType: \"application/json\"\n  }\n}) }}\n",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "014466b9-02cd-486f-9538-e1384f6cce05",
+      "name": "Gemini eligibility scoring",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        -576
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst jobs = $input.all().map(item => item.json);\n\nif (jobs.length === 0) {\n  return [];\n}\n\njobs.sort((a, b) =>\n  Number(b.match_score || 0) -\n  Number(a.match_score || 0)\n);\n\nconst escapeHtml = value =>\n  String(value ?? '').replace(/[&<>\"']/g, ch => ({\n    '&': '&amp;',\n    '<': '&lt;',\n    '>': '&gt;',\n    '\"': '&quot;',\n    \"'\": '&#39;'\n  })[ch]);\n\nconst rows = jobs.map((job, i) => {\n  const score = Number(job.match_score || 0);\n  const url = String(job.apply_url || '');\n  const link = /^https:\\/\\//i.test(url)\n    ? `<a href=\"${escapeHtml(url)}\">Apply Here</a>`\n    : 'Application link unavailable';\n\n  return `\n    <div style=\"padding:16px 0;border-bottom:1px solid #ddd;\">\n      <h3>${i + 1}. ${escapeHtml(job.job_title)}</h3>\n      <p><b>Company:</b> ${escapeHtml(job.company)}</p>\n      <p><b>Location:</b> ${escapeHtml(job.location)}</p>\n      <p><b>Match Score:</b> ${score}%</p>\n      <p><b>Sponsorship:</b> ${escapeHtml(job.sponsorship_status)}</p>\n      <p><b>Posted:</b> ${escapeHtml(job.posted_date || 'Not specified')}</p>\n      <p><b>Why it matches:</b> ${escapeHtml(job.reason)}</p>\n      <p>${link}</p>\n    </div>\n  `;\n}).join('');\n\nconst html = `\n  <h2>New Engineering Job Matches</h2>\n  <p>Found ${jobs.length} matching opportunities.</p>\n  ${rows}\n  <p>Generated by your n8n Job Search Agent.</p>\n`;\n\nreturn [{\n  json: {\n    subject: `Job Alert: ${jobs.length} matching positions`,\n    html,\n    job_keys: jobs.map(j => j.job_key)\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        -480
+      ],
+      "id": "b24f2b82-d296-499d-a14c-ad1046d9f079",
+      "name": "Build Email Digest"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst responses = $input.all();\nconst originalJobs = $(\"Only unseen IDs\").all();\n\nif (responses.length !== originalJobs.length) {\n  throw new Error(\n    \"Gemini response count does not match job count.\"\n  );\n}\n\nreturn responses.map((item, index) => {\n  const text = item.json.candidates?.[0]\n    ?.content?.parts\n    ?.map(p => p.text || \"\")\n    .join(\"\");\n\n  if (!text) {\n    throw new Error(\n      `Missing Gemini response at index ${index}`\n    );\n  }\n\n  const ai = JSON.parse(text);\n  const job = $(\"Only unseen IDs\").itemMatching(index).json;\n\n  return {\n    json: {\n      ...job,\n      qualified: ai.qualified === true,\n      match_score: Number(ai.match_score || 0),\n      sponsorship_status:\n        ai.sponsorship_status || \"not_specified\",\n      reason: ai.reason || \"\",\n      notified: false\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        -576
+      ],
+      "id": "affc3ed5-486a-43ca-b1e9-838535ff6edf",
+      "name": "Parse AI decisions"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().filter(item =>\n  item.json.qualified === false\n);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        -672
+      ],
+      "id": "0ece68b5-8e54-45d7-9b48-f0553af98094",
+      "name": "Keep rejected jobs"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "hVdzIQnvJBaUunew",
+          "mode": "list",
+          "cachedResultName": "monitored_jobs",
+          "cachedResultUrl": "/projects/dFM07P7igYSSWy2e/datatables/hVdzIQnvJBaUunew"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "job_key",
+              "keyValue": "={{ $json.job_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "notified": "={{ false }}",
+            "job_key": "={{ $json.job_key }}",
+            "company": "={{ $json.company }}",
+            "job_title": "={{ $json.job_title }}",
+            "location": "={{ $json.location }}",
+            "apply_url": "={{ $json.apply_url }}",
+            "posted_date": "={{ $json.posted_date }}",
+            "first_seen": "={{ $json.first_seen }}",
+            "match_score": "={{ $json.match_score }}",
+            "sponsorship_status": "={{ $json.sponsorship_status }}",
+            "reason": "={{ $json.reason }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "job_key",
+              "displayName": "job_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "apply_url",
+              "displayName": "apply_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "posted_date",
+              "displayName": "posted_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_seen",
+              "displayName": "first_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "match_score",
+              "displayName": "match_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sponsorship_status",
+              "displayName": "sponsorship_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "notified",
+              "displayName": "notified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2016,
+        -672
+      ],
+      "id": "540d2fdd-3b21-42c4-bb77-8393a5d7e985",
+      "name": "Upsert row(s)"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -224,
+        -624
+      ],
+      "id": "489c3355-3216-4697-a941-549ac713bc9c",
+      "name": "Fetch Children's Mercy jobs"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst categories = [\n  { name: \"Information Systems\", id: \"8730\" },\n  { name: \"Professionals\", id: \"8725\" },\n  { name: \"Research\", id: \"8737\" }\n];\n\nconst pages = [0, 1, 2];\n\nreturn categories.flatMap(category =>\n  pages.map(page => ({\n    json: {\n      company: \"Children's Mercy Hospital\",\n      category: category.name,\n      category_id: category.id,\n      page,\n      url:\n        \"https://jobs-childrensmercykc.icims.com/jobs/search\" +\n        `?ss=1&searchCategory=${category.id}&pr=${page}`\n    }\n  }))\n);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        -624
+      ],
+      "id": "69eb4c80-d081-45a3-9360-d934033b07ed",
+      "name": "Children's Mercy pages"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst responses = $input.all();\nconst originalJobs = $(\"Filter CMH engineering jobs\").all();\n\nif (responses.length !== originalJobs.length) {\n  throw new Error(\"Job detail count does not match original jobs\");\n}\n\nfunction cleanHtml(html) {\n  return String(html || \"\")\n    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, \" \")\n    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, \" \")\n    .replace(/<[^>]+>/g, \" \")\n    .replace(/&nbsp;|&#160;/gi, \" \")\n    .replace(/&amp;/gi, \"&\")\n    .replace(/&#39;|&apos;/gi, \"'\")\n    .replace(/&quot;/gi, '\"')\n    .replace(/&rsquo;|&lsquo;/gi, \"'\")\n    .replace(/&ndash;|&mdash;/gi, \"-\")\n    .replace(/\\s+/g, \" \")\n    .trim();\n}\n\nreturn responses.map((item, index) => {\n  const job = originalJobs[index].json;\n  const html = String(item.json.job_html || item.json.data || \"\");\n\n  const match = html.match(\n    /<div\\b[^>]*class=[\"'][^\"']*iCIMS_JobContent[^\"']*[\"'][^>]*>([\\s\\S]*?)(?=<div\\b[^>]*class=[\"'][^\"']*iCIMS_JobOptions|<footer\\b|$)/i\n  );\n\n  const description = cleanHtml(match?.[1] || \"\");\n\n  if (!description) {\n    throw new Error(`Description missing for ${job.job_key}`);\n  }\n\n  return {\n    json: {\n      ...job,\n      description\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -624
+      ],
+      "id": "bc5ced17-10ce-4023-a5c5-054c57b5e5bd",
+      "name": "Extract CMH descriptions"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst inputs = $input.all();\nconst jobs = [];\n\nfunction clean(value) {\n  return String(value || '')\n    .replace(/<[^>]*>/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&#39;|&apos;/g, \"'\")\n    .replace(/&nbsp;/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfor (const item of inputs) {\n  const html = String(\n    item.json.data ?? item.json.body ?? ''\n  );\n\n  if (!html.includes('iCIMS_JobCardItem')) {\n  if (\n    !html.includes('iCIMS_MainWrapper') &&\n    !html.includes('iCIMS_ListingsPage')\n  ) {\n    throw new Error(\n      'Unexpected response: iCIMS listing HTML not found'\n    );\n  }\n\n  // Valid iCIMS page with no job listings.\n  continue;\n}\n\n  const cards = html.match(\n    /<li\\b[^>]*class=[\"'][^\"']*iCIMS_JobCardItem[^\"']*[\"'][^>]*>[\\s\\S]*?<\\/li>/gi\n  ) || [];\n\n  for (const card of cards) {\n    const linkMatch = card.match(\n      /<a\\b[^>]*href=[\"'](https:\\/\\/jobs-childrensmercykc\\.icims\\.com\\/jobs\\/\\d+\\/[^\"']+)[\"'][^>]*>[\\s\\S]*?<h3[^>]*>([\\s\\S]*?)<\\/h3>/i\n    );\n\n    if (!linkMatch) continue;\n\n    const url = linkMatch[1];\n    const title = clean(linkMatch[2]);\n\n    const id = url.match(/\\/jobs\\/(\\d+)\\//)?.[1];\n    if (!id) continue;\n\n    const locationMatch = card.match(\n      /class=[\"'][^\"']*header left[^\"']*[\"'][^>]*>[\\s\\S]*?<span[^>]*>([\\s\\S]*?)<\\/span>[\\s\\S]*?<span[^>]*>([\\s\\S]*?)<\\/span>/i\n    );\n\n    const rawLocation = clean(locationMatch?.[2]);\n\n    const location = rawLocation\n      .replace(/^US-MO-/, '') \n      .replace(/^US-KS-/, '');\n\n    const state = rawLocation.startsWith('US-MO-')\n      ? 'MO'\n      : rawLocation.startsWith('US-KS-')\n      ? 'KS'\n      : '';\n\n    jobs.push({\n      json: {\n        job_key: `ChildrensMercy:icims:${id}`,\n        company: \"Children's Mercy Hospital\",\n        job_title: title,\n        location: state\n          ? `${location}, ${state}`\n          : rawLocation,\n        apply_url: url,\n        posted_date: '',\n        description: '',\n        first_seen: new Date().toISOString(),\n        match_score: 0,\n        sponsorship_status: 'not_specified',\n        reason: '',\n        notified: false\n      }\n    });\n  }\n}\n\nreturn jobs;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -624
+      ],
+      "id": "60efd8c6-fb71-40f9-9917-599e7a1209e2",
+      "name": "Normalize Children's Mercy jobs"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst keywords = [\n  /\\bsoftware\\b/i,\n  /\\bdata\\b/i,\n  /\\banalytics?\\b/i,\n  /\\binformatics\\b/i,\n  /\\bcloud\\b/i,\n  /\\bplatform\\b/i,\n  /\\bdevops\\b/i,\n  /\\bdatabase\\b/i,\n  /\\bdeveloper\\b/i,\n  /\\bprogrammer\\b/i,\n  /\\bapplications?\\b/i,\n  /\\bbusiness intelligence\\b/i,\n  /\\bsystems? (engineer|analyst|administrator)\\b/i,\n  /\\btechnology\\b/i,\n  /\\bbioinformatics\\b/i\n];\n\nreturn $input.all().filter(item => {\n  const title = String(item.json.job_title || '');\n  return keywords.some(regex => regex.test(title));\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -624
+      ],
+      "id": "dff85d9b-88db-405a-9acd-1dba05e5fadc",
+      "name": "Filter CMH engineering jobs"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.apply_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "job_html"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        -624
+      ],
+      "id": "4032e383-9f99-4ba2-9d86-af85dc6a995a",
+      "name": "Fetch CMH job details"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        896,
+        -576
+      ],
+      "id": "9e371683-2b5f-499a-ae54-a6921d02a830",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sources = [{\"company\": \"AbbVie\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Thermo Fisher Scientific\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"BNY\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Optiv\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"FMA Logistics\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"BJC HealthCare\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Saint Luke's\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Lyft\", \"ats\": \"greenhouse\", \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/lyft/jobs?content=true\", \"status\": \"board token identified in historical Greenhouse job application; live API requires test\"}, {\"company\": \"CBIZ\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Sterling Bank & Trust\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Freddie Mac\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"nbkc bank\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"PSI Services\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Jabil\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Highmark\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Humana\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Staples\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"U-Haul\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Meta\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"TikTok\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Amazon\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"ByteDance\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"DoorDash\", \"ats\": \"greenhouse\", \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/doordashusa/jobs?content=true\", \"status\": \"API returned JSON in manual test\"}, {\"company\": \"Google\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Epiq\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Whirlpool\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"LG\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Samsung\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Godrej\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Topgolf\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\"company\": \"Amcor\", \"ats\": \"unresolved\", \"api_url\": \"\", \"status\": \"unresolved — do not assume endpoint\"}, {\n  company: \"Databricks\",\n  ats: \"greenhouse\",\n  api_url: \"https://boards-api.greenhouse.io/v1/boards/databricks/jobs?content=true\",\n  status: \"API endpoint pending test\"\n},\n{\n  company: \"Figma\",\n  ats: \"greenhouse\",\n  api_url: \"https://boards-api.greenhouse.io/v1/boards/figma/jobs?content=true\",\n  status: \"JSON endpoint identified\"\n},\n{\n  company: \"Affirm\",\n  ats: \"greenhouse\",\n  api_url: \"https://boards-api.greenhouse.io/v1/boards/affirm/jobs?content=true\",\n  status: \"JSON endpoint identified\"\n},\n{\n  company: \"Cloudflare\",\n  ats: \"greenhouse\",\n  api_url: \"https://boards-api.greenhouse.io/v1/boards/cloudflare/jobs?content=true\",\n  status: \"Needs live n8n API test\"\n}];\nreturn sources.filter(x => x.api_url).map(x => ({json:x}));"
+      },
+      "id": "efc01740-975b-4833-9ddb-5727d58ba9e0",
+      "name": "Company sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst jobs = $input.all();\n\nconst counts = {};\n\nfor (const item of jobs) {\n  const company = item.json.company || \"Unknown\";\n  counts[company] = (counts[company] || 0) + 1;\n}\n\nconst result = Object.entries(counts).map(([company, count]) => ({\n  json: { company, count }\n}));\n\nresult.push({\n  json: {\n    company: \"TOTAL\",\n    count: jobs.length\n  }\n});\n\nreturn result;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -336
+      ],
+      "id": "4ac16b90-0fb3-4c31-865c-5d5f9e980d8d",
+      "name": "temp count"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://humana.wd5.myworkdayjobs.com/wday/cxs/humana/Humana_External_Career_Site/jobs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            },
+            {
+              "name": "Origin",
+              "value": "https://humana.wd5.myworkdayjobs.com"
+            },
+            {
+              "name": "Referer",
+              "value": "https://humana.wd5.myworkdayjobs.com/en-US/Humana_External_Career_Site"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -672,
+        -112
+      ],
+      "id": "d4cfde60-992d-4bf2-90b3-79aaeef599ab",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst responses = $input.all();\nconst results = [];\n\nconst baseUrl =\n  \"https://humana.wd5.myworkdayjobs.com\";\n\nfor (const response of responses) {\n  const jobs = response.json.jobPostings || [];\n\n  for (const job of jobs) {\n    const externalPath = job.externalPath || \"\";\n\n    if (!externalPath) continue;\n\n    const applyUrl = baseUrl + externalPath;\n\n    results.push({\n      json: {\n        job_key: \"Humana:workday:\" + externalPath,\n        company: \"Humana\",\n        job_title: job.title || \"\",\n        location: job.locationsText || \"\",\n        apply_url: applyUrl,\n        posted_date: job.postedOn || \"\",\n        updated_at: \"\",\n        description: job.bulletFields?.join(\" \") || \"\",\n        first_seen: new Date().toISOString(),\n        match_score: 0,\n        sponsorship_status: \"not_specified\",\n        reason: \"\",\n        notified: false\n      }\n    });\n  }\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        -112
+      ],
+      "id": "1bf041c6-3a34-4416-8fff-91ea5a39d234",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "url": "={{ \"https://humana.wd5.myworkdayjobs.com/wday/cxs/humana/Humana_External_Career_Site\" + $json.job_key.replace(\"Humana:workday:\", \"\") }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -224,
+        -112
+      ],
+      "id": "77f80286-1801-46a9-b2bd-5119e67817a9",
+      "name": "HTTP Request1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 30 minutes": {
+      "main": [
+        [
+          {
+            "node": "Company sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Children's Mercy pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch careers API": {
+      "main": [
+        [
+          {
+            "node": "Normalize ATS jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Title & US prefilter": {
+      "main": [
+        [
+          {
+            "node": "temp count",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Only unseen IDs": {
+      "main": [
+        [
+          {
+            "node": "Gemini eligibility scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep qualified jobs": {
+      "main": [
+        [
+          {
+            "node": "Build Email Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail new-job alert": {
+      "main": [
+        [
+          {
+            "node": "Prepare saved record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare saved record": {
+      "main": [
+        [
+          {
+            "node": "Save notified job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize ATS jobs": {
+      "main": [
+        [
+          {
+            "node": "Title & US prefilter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini eligibility scoring": {
+      "main": [
+        [
+          {
+            "node": "Parse AI decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email Digest": {
+      "main": [
+        [
+          {
+            "node": "Gmail new-job alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI decisions": {
+      "main": [
+        [
+          {
+            "node": "Keep qualified jobs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Keep rejected jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep rejected jobs": {
+      "main": [
+        [
+          {
+            "node": "Upsert row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Children's Mercy jobs": {
+      "main": [
+        [
+          {
+            "node": "Normalize Children's Mercy jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Children's Mercy pages": {
+      "main": [
+        [
+          {
+            "node": "Fetch Children's Mercy jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Children's Mercy jobs": {
+      "main": [
+        [
+          {
+            "node": "Filter CMH engineering jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter CMH engineering jobs": {
+      "main": [
+        [
+          {
+            "node": "Fetch CMH job details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch CMH job details": {
+      "main": [
+        [
+          {
+            "node": "Extract CMH descriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract CMH descriptions": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Only unseen IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company sources": {
+      "main": [
+        [
+          {
+            "node": "Fetch careers API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "temp count": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": [],
+  "tags": []
+}

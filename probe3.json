@@ -1,0 +1,8 @@
+[
+ ["Freddie-api","https://freddiemac.wd5.myworkdayjobs.com/wday/cxs/freddiemac/External/jobs",{"limit":20,"offset":0,"searchText":"","appliedFacets":{}}],
+ ["CBIZ-rss","https://phf.tbe.taleo.net/phf01/ats/servlet/Rss?org=CBIZ&cws=67&WebPage=SRCHR_V2&WebVersion=2&_rss_version=2",null],
+ ["PSI-careers","https://www.psiexams.com/about-psi/careers/",null],
+ ["Whirlpool-api2","https://jobs.whirlpool.com/api/apply/v2/jobs?domain=whirlpool.com&start=0&num=10&sort_by=relevance",null],
+ ["LG-js","https://lge-careers.com/wp-content/themes/lg-career/assets/javascript/foundation.js?ver=2.9.2",null],
+ ["CBIZ-careers","https://www.cbiz.com/careers",null]
+]

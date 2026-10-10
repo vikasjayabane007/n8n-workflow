@@ -1,0 +1,8 @@
+research/
+*.local.json
+results-*.json
+probe-results.json
+node_modules/
+__pycache__/
+.env
+.env.*

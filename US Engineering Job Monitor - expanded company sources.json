@@ -1,0 +1,1335 @@
+{
+  "name": "US Engineering Job Monitor — 30 Minutes (expanded company sources)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "f9dfcd0e-f61e-4544-9aa0-6eef3521a036",
+      "name": "Every 30 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1240,
+        -640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst jobs = $input.all().filter(x=>x.json.kind==='job' && x.json.description);\n\n// ============================================\n// TARGET JOB TITLES\n// ============================================\n\nconst target =\n  /\\b(software|java|python|backend|back.end|full.stack|developer|application engineer|api engineer|microservices|data engineer|data engineering|data platform|databricks|pyspark|spark engineer|cloud|aws|azure|devops|etl|analytics engineer|integration engineer|platform engineer|machine learning engineer|ml engineer|site reliability engineer|sre|infrastructure engineer|systems engineer|database engineer|data scientist)\\b/i;\n\n// ============================================\n// EXCLUDED JOB TITLES\n// ============================================\n\nconst reject =\n  /\\b(intern|internship|director|vice president|vp|chief|recruiter|sales engineer|support engineer|principal|staff|engineering manager)\\b/i;\n\n// ============================================\n// US STATE ABBREVIATIONS\n// ============================================\n\nconst usStates = new Set([\n  \"AL\",\"AK\",\"AZ\",\"AR\",\"CA\",\"CO\",\"CT\",\"DE\",\"FL\",\"GA\",\n  \"HI\",\"ID\",\"IL\",\"IN\",\"IA\",\"KS\",\"KY\",\"LA\",\"ME\",\"MD\",\n  \"MA\",\"MI\",\"MN\",\"MS\",\"MO\",\"MT\",\"NE\",\"NV\",\"NH\",\"NJ\",\n  \"NM\",\"NY\",\"NC\",\"ND\",\"OH\",\"OK\",\"OR\",\"PA\",\"RI\",\"SC\",\n  \"SD\",\"TN\",\"TX\",\"UT\",\"VT\",\"VA\",\"WA\",\"WV\",\"WI\",\"WY\",\"DC\"\n]);\n\n// ============================================\n// FULL US STATE NAMES\n// ============================================\n\nconst usStateNames = [\n  \"Alabama\",\"Alaska\",\"Arizona\",\"Arkansas\",\"California\",\n  \"Colorado\",\"Connecticut\",\"Delaware\",\"Florida\",\"Georgia\",\n  \"Hawaii\",\"Idaho\",\"Illinois\",\"Indiana\",\"Iowa\",\"Kansas\",\n  \"Kentucky\",\"Louisiana\",\"Maine\",\"Maryland\",\"Massachusetts\",\n  \"Michigan\",\"Minnesota\",\"Mississippi\",\"Missouri\",\"Montana\",\n  \"Nebraska\",\"Nevada\",\"New Hampshire\",\"New Jersey\",\n  \"New Mexico\",\"New York\",\"North Carolina\",\"North Dakota\",\n  \"Ohio\",\"Oklahoma\",\"Oregon\",\"Pennsylvania\",\"Rhode Island\",\n  \"South Carolina\",\"South Dakota\",\"Tennessee\",\"Texas\",\n  \"Utah\",\"Vermont\",\"Virginia\",\"Washington\",\"West Virginia\",\n  \"Wisconsin\",\"Wyoming\",\"District of Columbia\"\n];\n\n// ============================================\n// COMMON US CITIES\n// ============================================\n\nconst usCities = [\n  \"San Francisco\",\"San Jose\",\"Mountain View\",\"Sunnyvale\",\n  \"Palo Alto\",\"Santa Clara\",\"Redwood City\",\"Menlo Park\",\n  \"Los Angeles\",\"San Diego\",\"Sacramento\",\"Irvine\",\n  \"New York\",\"Brooklyn\",\"Seattle\",\"Bellevue\",\"Redmond\",\n  \"Austin\",\"Dallas\",\"Houston\",\"Plano\",\"Fort Worth\",\n  \"Boston\",\"Cambridge\",\"Chicago\",\"Denver\",\"Boulder\",\n  \"Atlanta\",\"Miami\",\"Orlando\",\"Tampa\",\n  \"Washington DC\",\"Washington D.C.\",\n  \"Arlington\",\"Reston\",\"Ashburn\",\"McLean\",\n  \"Kansas City\",\"Overland Park\",\"St. Louis\",\n  \"Philadelphia\",\"Pittsburgh\",\"Raleigh\",\"Durham\",\n  \"Charlotte\",\"Columbus\",\"Cincinnati\",\"Cleveland\",\n  \"Detroit\",\"Minneapolis\",\"Nashville\",\"Phoenix\",\n  \"Salt Lake City\",\"Portland\",\"Indianapolis\",\n  \"Madison\",\"Milwaukee\",\"Omaha\",\"Des Moines\",\n  \"San Antonio\",\"Richardson\",\"Irving\",\"Frisco\",\n  \"Bentonville\",\"Fayetteville\",\"Little Rock\",\n  \"Ann Arbor\",\"Boise\",\"Reno\",\"Las Vegas\",\n  \"Tempe\",\"Scottsdale\",\"Chandler\",\"Mesa\",\n  \"Wilmington\",\"Newark\",\"Jersey City\",\n  \"Baltimore\",\"Bethesda\",\"Rockville\",\n  \"Columbia\",\"Charleston\",\"Richmond\",\n  \"Huntsville\",\"Birmingham\",\"Louisville\",\n  \"Lexington\",\"Knoxville\",\"Chattanooga\",\n  \"Memphis\",\"New Orleans\",\"Baton Rouge\",\n  \"Jacksonville\",\"Fort Lauderdale\",\n  \"West Palm Beach\",\"Fort Myers\",\n  \"Rochester\",\"Albany\",\"Buffalo\",\"Syracuse\",\n  \"Princeton\",\"Bridgewater\",\"Edison\",\n  \"Fremont\",\"Pleasanton\",\"Dublin\",\n  \"Oakland\",\"Berkeley\",\"Emeryville\",\n  \"San Mateo\",\"San Bruno\",\"South San Francisco\",\n  \"Cupertino\",\"Milpitas\",\"Campbell\"\n];\n\n// ============================================\n// LOCATION HELPERS\n// ============================================\n\nfunction escapeRegex(value) {\n  return value.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\");\n}\n\nfunction containsPlace(text, place) {\n  const pattern = new RegExp(\n    `(^|[^a-z])${escapeRegex(place)}(?=$|[^a-z])`,\n    \"i\"\n  );\n\n  return pattern.test(text);\n}\n\nfunction isUSLocation(location) {\n  const loc = String(location || \"\").trim();\n\n  if (!loc) return false;\n\n  // Reject explicitly foreign locations\n  const foreign =\n    /\\b(canada|toronto|montreal|montréal|vancouver|ottawa|india|united kingdom|uk|london|europe|germany|france|poland|mexico|singapore|australia|netherlands|ireland|japan|brazil|china|spain|italy|sweden|switzerland|denmark|norway|finland|portugal|israel|united arab emirates|dubai|uae|south korea|taiwan|hong kong)\\b/i;\n\n  if (foreign.test(loc)) {\n    return false;\n  }\n\n  // Explicit US locations\n  if (/\\b(united states|usa|u\\.s\\.a\\.|u\\.s\\.)\\b/i.test(loc)) {\n    return true;\n  }\n\n  // City followed by US state abbreviation\n  const matches =\n    [...loc.matchAll(/,\\s*([A-Za-z]{2})\\b/g)];\n\n  if (matches.some(\n    m => usStates.has(m[1].toUpperCase())\n  )) {\n    return true;\n  }\n\n  // Full US state names\n  if (usStateNames.some(\n    state => containsPlace(loc, state)\n  )) {\n    return true;\n  }\n\n  // Recognized US city names\n  if (usCities.some(\n    city => containsPlace(loc, city)\n  )) {\n    return true;\n  }\n\n  return false;\n}\n\n// ============================================\n// FILTER AND RETURN JOBS\n// ============================================\n\nreturn jobs.filter(item => {\n  const job = item.json;\n\n  const title = String(job.job_title || \"\");\n  const location = String(job.location || \"\");\n\n  return (\n    target.test(title) &&\n    !reject.test(title) &&\n    (Array.isArray(job.country_codes) && job.country_codes.some(c=>/^(US|USA|United States(?: of America)?)$/i.test(c)) || (job.locations||[location]).some(isUSLocation))\n  );\n});\n"
+      },
+      "id": "b76853fe-381e-4d4e-8d43-88ae25920366",
+      "name": "Title & US prefilter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "monitored_jobs_expanded"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "job_key",
+              "keyValue": "={{ $json.job_key }}"
+            }
+          ]
+        }
+      },
+      "id": "f4974b65-a5ac-4e99-9c8a-faf9efa246fe",
+      "name": "Only unseen IDs",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2360,
+        -576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $input.all().filter(item =>\n  item.json.qualified === true &&\n  ![\"unavailable\", \"restricted\"].includes(\n    item.json.sponsorship_status\n  )\n);\n"
+      },
+      "id": "8848e5d9-d292-43e3-8e64-392e0fabbb3b",
+      "name": "Keep qualified jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3032,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "you@example.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "c10ce6eb-f9b0-4aa3-a28c-6630bee93dec",
+      "name": "Gmail new-job alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3480,
+        -480
+      ],
+      "webhookId": "7cc4de07-155d-433d-bc16-4b57cf6708b0"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst jobs = $(\"Keep qualified jobs\").all();\n\nreturn jobs.map(item => ({\n  json: {\n    ...item.json,\n    notified: true\n  }\n}));\n"
+      },
+      "id": "eeba7692-dde7-4197-952f-3f4f9102b01f",
+      "name": "Prepare saved record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3704,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "monitored_jobs_expanded"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "job_key",
+              "keyValue": "={{ $json.job_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "job_key": "={{ $json.job_key }}",
+            "company": "={{ $json.company }}",
+            "job_title": "={{ $json.job_title }}",
+            "location": "={{ $json.location }}",
+            "apply_url": "={{ $json.apply_url }}",
+            "posted_date": "={{ $json.posted_date }}",
+            "first_seen": "={{ $json.first_seen }}",
+            "match_score": "={{ $json.match_score }}",
+            "sponsorship_status": "={{ $json.sponsorship_status }}",
+            "reason": "={{ $json.reason }}",
+            "notified": "={{ true }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "job_key",
+              "displayName": "job_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "apply_url",
+              "displayName": "apply_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "posted_date",
+              "displayName": "posted_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_seen",
+              "displayName": "first_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "match_score",
+              "displayName": "match_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sponsorship_status",
+              "displayName": "sponsorship_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "notified",
+              "displayName": "notified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b4f51245-faf4-41e3-9898-b4bbd4bc667f",
+      "name": "Save notified job",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        3928,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n{{ JSON.stringify({\n  contents: [\n    {\n      parts: [\n        {\n          text: `You are an expert technical recruiter evaluating a\nUS-based engineering job for a candidate with\napproximately 5-6 years of combined software\nengineering and data engineering experience.\n\nThe candidate is targeting THREE EQUALLY IMPORTANT\ncareer tracks:\n\n1. SOFTWARE ENGINEERING\n2. FULL STACK ENGINEERING\n3. DATA ENGINEERING\n\nEvaluate the job against the career track that\nbest matches its actual responsibilities.\n\nDo not prioritize one career track over another.\n\n=============================================\nCANDIDATE PROFILE\n=============================================\n\nExperience:\nApproximately 5-6 years of professional\nsoftware engineering and data engineering\nexperience.\n\nEducation:\nMaster's degree in Computer Science.\n\nProgramming Languages:\nJava, Python, SQL, PySpark, Spark SQL.\n\nSoftware Development:\nObject-oriented programming,\nREST API development,\nSpring Boot, FastAPI,\nmicroservices, backend development,\napplication integrations,\ndistributed systems,\ndata structures and algorithms.\n\nDatabases:\nPostgreSQL, SQL Server,\nAurora PostgreSQL,\nrelational database design,\nSQL optimization and data modeling.\n\nAWS:\nAmazon S3,\nAWS Glue,\nAWS Lambda,\nAWS Step Functions,\nAmazon EMR,\nAmazon Athena,\nAmazon Redshift,\nAurora PostgreSQL,\nAmazon RDS,\nAWS DMS,\nIAM,\nCloudWatch.\n\nAzure:\nAzure Databricks,\nAzure Data Factory,\nADLS Gen2,\nAzure SQL,\nMicrosoft Fabric.\n\nData Engineering:\nApache Spark,\nPySpark,\nDelta Lake,\nUnity Catalog,\nBronze/Silver/Gold architecture,\nETL/ELT,\nCDC,\nincremental processing,\nbatch pipelines,\ndata transformations,\ndata quality,\ndata reconciliation.\n\nDevOps:\nGit,\nGitHub Actions,\nCI/CD,\nDocker,\nTerraform.\n\nAnalytics:\nPower BI,\nAmazon QuickSight,\nBirst Analytics.\n\nIMPORTANT:\nDo not assume the candidate has professional\nexperience in technologies not listed here.\n\n=============================================\nTRACK 1: SOFTWARE ENGINEERING\n=============================================\n\nTARGET ROLES:\n\nSoftware Engineer\nSoftware Developer\nSoftware Engineer I\nSoftware Engineer II\nSenior Software Engineer\nJava Developer\nJava Software Engineer\nPython Developer\nPython Software Engineer\nJava Backend Developer\nPython Backend Developer\nBackend Software Engineer\nApplication Developer\nAPI Developer\nMicroservices Developer\nCloud Software Engineer\n\nEVALUATION RULES:\n\n1. Java and Python are equally important\nprogramming languages.\n\n2. Generic Software Engineer roles are\nimportant targets.\n\n3. Strongly consider jobs requiring Java,\nPython, backend development, Spring Boot,\nFastAPI, REST APIs, SQL or microservices.\n\n4. Do not require Apache Spark, Databricks,\nPySpark or ETL experience for a software\nengineering position.\n\n5. Evaluate transferable backend development,\ncloud computing, database and programming skills.\n\n6. Consider jobs using frameworks or programming\nlanguages not explicitly listed if the core\nsoftware engineering requirements are transferable.\n\n7. Do not automatically reject a Software Engineer\nposition because it uses some unfamiliar technologies.\n\n8. Reject highly specialized roles where essential\nexpertise is substantially outside the candidate's\nbackground, such as:\n- iOS/Swift-only development\n- Android-only development\n- Embedded firmware\n- Robotics firmware\n- Game engine programming\n- Graphics engine development\n\n9. A Java or Python Software Engineer role\ncan receive an excellent match score even if\nthe job involves no data engineering.\n\n=============================================\nTRACK 2: FULL STACK ENGINEERING\n=============================================\n\nTARGET ROLES:\n\nFull Stack Developer\nFull Stack Engineer\nFull Stack Software Engineer\nJava Full Stack Developer\nPython Full Stack Developer\nBackend / Full Stack Developer\nFull Stack Application Developer\n\nRELEVANT SKILLS:\n\nBackend:\nJava,\nPython,\nSpring Boot,\nFastAPI,\nREST APIs,\nmicroservices,\nSQL,\nPostgreSQL,\nSQL Server.\n\nCloud:\nAWS,\nAzure,\nDocker,\nTerraform.\n\nDevelopment:\nGit,\nGitHub Actions,\nCI/CD,\napplication integrations.\n\nFrontend:\nThe candidate has backend and application\ndevelopment experience, but specific professional\nfrontend framework expertise is not established.\n\nFULL STACK EVALUATION RULES:\n\n1. Full Stack Engineering is an equally\nimportant career target.\n\n2. Strongly consider Java and Python full stack\nroles involving backend APIs, database development\nand cloud services.\n\n3. Consider jobs involving React, Angular,\nJavaScript, TypeScript, HTML or CSS.\n\n4. Do not assume professional expertise in\nReact, Angular, JavaScript or TypeScript\nunless explicitly supported by the profile.\n\n5. If the role is backend-heavy with moderate\nfrontend responsibilities, evaluate transferable\nskills positively.\n\n6. If the role requires extensive expert-level\nfrontend development as an essential qualification,\nreduce the match score accordingly.\n\n7. Do not reject a Java Full Stack Developer\nposition solely because it also mentions React\nor Angular.\n\n8. A backend-heavy Java/Python Full Stack\nposition can receive a strong or excellent score.\n\n=============================================\nTRACK 3: DATA ENGINEERING\n=============================================\n\nTARGET ROLES:\n\nData Engineer\nData Engineer II\nSenior Data Engineer\nAWS Data Engineer\nAzure Data Engineer\nDatabricks Data Engineer\nDatabricks Engineer\nSpark Engineer\nPySpark Engineer\nCloud Data Engineer\nData Platform Engineer\nETL Developer\nELT Developer\nData Integration Engineer\nAnalytics Engineer\n\nEVALUATION RULES:\n\n1. Strongly consider positions requiring\nAWS, Azure, Databricks, Spark, PySpark,\nPython, SQL, ETL/ELT or cloud data pipelines.\n\n2. Prioritize actual technical overlap with\nthe job requirements.\n\n3. Do not penalize a strong AWS Data Engineer\nrole because it does not use Azure.\n\n4. Do not penalize a strong Azure Data Engineer\nrole because it does not use AWS.\n\n5. Do not require Spring Boot or Java backend\ndevelopment for a Data Engineer position.\n\n6. Strong matches include combinations of:\n- Python and SQL\n- PySpark and Apache Spark\n- AWS Glue, S3, Redshift and Lambda\n- Azure Databricks and Azure Data Factory\n- Delta Lake and Databricks\n- ETL/ELT, CDC and data pipelines\n- Terraform and cloud infrastructure\n\n7. Evaluate experience with scalable data\nprocessing, orchestration, data quality,\ndata modeling and reconciliation.\n\n8. Data Engineering roles can receive excellent\nmatch scores without software application\ndevelopment responsibilities.\n\n=============================================\nEXPERIENCE REQUIREMENTS\n=============================================\n\n1. Prefer positions requiring approximately\n2-8 years of professional experience.\n\n2. Do not automatically reject Senior\nSoftware Engineer, Senior Full Stack Engineer\nor Senior Data Engineer positions.\n\n3. Evaluate actual experience requirements\nand the candidate's technical skills.\n\n4. Positions requiring 9+ years should\ngenerally be rejected unless there is clear\nevidence that the requirement is flexible\nand the overall match is especially strong.\n\n5. Reject Staff, Principal, Director,\nVice President and executive-level roles.\n\n6. Do not reject jobs merely because they\ninclude the word \"Senior\".\n\n=============================================\nWORK AUTHORIZATION REQUIREMENTS\n=============================================\n\nThe candidate is seeking US employment and\ncurrently uses F-1 OPT/STEM OPT work authorization.\n\nThe candidate may require future employer\nvisa sponsorship.\n\nReject a position if it explicitly states:\n- US citizenship is required\n- US permanent residency is required\n- Active security clearance is required\n- Security clearance eligibility requires citizenship\n- Visa sponsorship is unavailable\n- The employer cannot sponsor now or in the future\n- The employer does not accept candidates who\n  require future immigration sponsorship\n\nIf the job explicitly confirms sponsorship\navailability, set sponsorship_status\nto \"confirmed\".\n\nIf sponsorship is explicitly unavailable,\nset sponsorship_status to \"unavailable\"\nand qualified to false.\n\nIf sponsorship is not discussed, set\nsponsorship_status to \"not_specified\".\n\nDo not assume an employer sponsors simply\nbecause it is a large technology company.\n\nDo not reject a position merely because\nsponsorship information is missing.\n\n=============================================\nSCORING RULES\n=============================================\n\nEvaluate:\n\n- Job responsibilities\n- Technical skill overlap\n- Relevant professional experience\n- Seniority level\n- Required qualifications\n- Transferable engineering skills\n- Explicit work authorization restrictions\n\nMATCH SCORE:\n\n90-100:\nExcellent match.\nStrong alignment with the candidate's\nskills and reasonable experience requirements.\n\n75-89:\nStrong match.\nMost important skills align with\nsome manageable gaps.\n\n60-74:\nReasonable match.\nRelevant technical skills exist,\nbut meaningful gaps remain.\n\n40-59:\nWeak match.\nSeveral important required skills are missing.\n\n0-39:\nPoor match.\nThe role is substantially outside\nthe candidate's background.\n\nQUALIFICATION LOGIC:\n\nSet qualified=true only if:\n- match_score >= 70\n- The role aligns with at least one\n  of the three target tracks\n- Seniority is reasonably appropriate\n- No explicit work authorization exclusion exists\n- Essential job requirements are realistically met\n\nOtherwise set qualified=false.\n\nIMPORTANT:\nA Java/Python Software Engineer,\na Java/Python Full Stack Developer,\nand an AWS/Azure/Databricks Data Engineer\nmust all have equal opportunities\nto receive a high match score.\n\nDo not favor data engineering over\nsoftware engineering or vice versa.\n\nDo not invent candidate experience or\nemployer sponsorship policies.\n\n=============================================\nRESPONSE FORMAT\n=============================================\n\nReturn ONLY a valid JSON object with\nexactly these four fields:\n\n{\n  \"qualified\": true,\n  \"match_score\": 85,\n  \"sponsorship_status\": \"not_specified\",\n  \"reason\": \"Strong technical alignment with the role.\"\n}\n\nField requirements:\n\nqualified:\nBoolean true or false.\n\nmatch_score:\nInteger between 0 and 100.\n\nsponsorship_status:\nExactly one of:\n\"confirmed\"\n\"not_specified\"\n\"unavailable\"\n\nreason:\nA concise explanation of the technical match,\nany important skill gaps, and any explicit\nwork authorization restrictions.\n\nNo Markdown.\nNo code fences.\nNo additional explanations.\n\n=============================================\nJOB TO EVALUATE\n=============================================\n\n${JSON.stringify({\n  title: $json.job_title,\n  company: $json.company,\n  location: $json.location,\n  description: $json.description\n})}`\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0,\n    responseMimeType: \"application/json\"\n  }\n}) }}\n",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "014466b9-02cd-486f-9538-e1384f6cce05",
+      "name": "Gemini eligibility scoring",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2584,
+        -576
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst jobs = $input.all().map(item => item.json);\n\nif (jobs.length === 0) {\n  return [];\n}\n\njobs.sort((a, b) =>\n  Number(b.match_score || 0) -\n  Number(a.match_score || 0)\n);\n\nconst escapeHtml = value =>\n  String(value ?? '').replace(/[&<>\"']/g, ch => ({\n    '&': '&amp;',\n    '<': '&lt;',\n    '>': '&gt;',\n    '\"': '&quot;',\n    \"'\": '&#39;'\n  })[ch]);\n\nconst rows = jobs.map((job, i) => {\n  const score = Number(job.match_score || 0);\n  const url = String(job.apply_url || '');\n  const link = /^https:\\/\\//i.test(url)\n    ? `<a href=\"${escapeHtml(url)}\">Apply Here</a>`\n    : 'Application link unavailable';\n\n  return `\n    <div style=\"padding:16px 0;border-bottom:1px solid #ddd;\">\n      <h3>${i + 1}. ${escapeHtml(job.job_title)}</h3>\n      <p><b>Company:</b> ${escapeHtml(job.company)}</p>\n      <p><b>Location:</b> ${escapeHtml(job.location)}</p>\n      <p><b>Match Score:</b> ${score}%</p>\n      <p><b>Sponsorship:</b> ${escapeHtml(job.sponsorship_status)}</p>\n      <p><b>Posted:</b> ${escapeHtml(job.posted_date || 'Not specified')}</p>\n      <p><b>Why it matches:</b> ${escapeHtml(job.reason)}</p>\n      <p>${link}</p>\n    </div>\n  `;\n}).join('');\n\nconst html = `\n  <h2>New Engineering Job Matches</h2>\n  <p>Found ${jobs.length} matching opportunities.</p>\n  ${rows}\n  <p>Generated by your n8n Job Search Agent.</p>\n`;\n\nreturn [{\n  json: {\n    subject: `Job Alert: ${jobs.length} matching positions`,\n    html,\n    job_keys: jobs.map(j => j.job_key)\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3256,
+        -480
+      ],
+      "id": "b24f2b82-d296-499d-a14c-ad1046d9f079",
+      "name": "Build Email Digest"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst responses = $input.all();\nconst originalJobs = $(\"Only unseen IDs\").all();\n\nif (responses.length !== originalJobs.length) {\n  throw new Error(\n    \"Gemini response count does not match job count.\"\n  );\n}\n\nreturn responses.map((item, index) => {\n  const text = item.json.candidates?.[0]\n    ?.content?.parts\n    ?.map(p => p.text || \"\")\n    .join(\"\");\n\n  if (!text) {\n    throw new Error(\n      `Missing Gemini response at index ${index}`\n    );\n  }\n\n  const ai = JSON.parse(text);\n  const job = $(\"Only unseen IDs\").itemMatching(index).json;\n\n  return {\n    json: {\n      ...job,\n      qualified: ai.qualified === true,\n      match_score: Number(ai.match_score || 0),\n      sponsorship_status:\n        ai.sponsorship_status || \"not_specified\",\n      reason: ai.reason || \"\",\n      notified: false\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2808,
+        -576
+      ],
+      "id": "affc3ed5-486a-43ca-b1e9-838535ff6edf",
+      "name": "Parse AI decisions"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().filter(item =>\n  item.json.qualified === false\n);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3032,
+        -672
+      ],
+      "id": "0ece68b5-8e54-45d7-9b48-f0553af98094",
+      "name": "Keep rejected jobs"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "monitored_jobs_expanded"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "job_key",
+              "keyValue": "={{ $json.job_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "notified": "={{ false }}",
+            "job_key": "={{ $json.job_key }}",
+            "company": "={{ $json.company }}",
+            "job_title": "={{ $json.job_title }}",
+            "location": "={{ $json.location }}",
+            "apply_url": "={{ $json.apply_url }}",
+            "posted_date": "={{ $json.posted_date }}",
+            "first_seen": "={{ $json.first_seen }}",
+            "match_score": "={{ $json.match_score }}",
+            "sponsorship_status": "={{ $json.sponsorship_status }}",
+            "reason": "={{ $json.reason }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "job_key",
+              "displayName": "job_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "job_title",
+              "displayName": "job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "apply_url",
+              "displayName": "apply_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "posted_date",
+              "displayName": "posted_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_seen",
+              "displayName": "first_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "match_score",
+              "displayName": "match_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sponsorship_status",
+              "displayName": "sponsorship_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "notified",
+              "displayName": "notified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3256,
+        -672
+      ],
+      "id": "540d2fdd-3b21-42c4-bb77-8393a5d7e985",
+      "name": "Upsert row(s)"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -224,
+        -624
+      ],
+      "id": "489c3355-3216-4697-a941-549ac713bc9c",
+      "name": "Fetch Children's Mercy jobs"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst categories = [\n  { name: \"Information Systems\", id: \"8730\" },\n  { name: \"Professionals\", id: \"8725\" },\n  { name: \"Research\", id: \"8737\" }\n];\n\nconst pages = [0, 1, 2];\n\nreturn categories.flatMap(category =>\n  pages.map(page => ({\n    json: {\n      company: \"Children's Mercy Hospital\",\n      category: category.name,\n      category_id: category.id,\n      page,\n      url:\n        \"https://jobs-childrensmercykc.icims.com/jobs/search\" +\n        `?ss=1&searchCategory=${category.id}&pr=${page}`\n    }\n  }))\n);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        -624
+      ],
+      "id": "69eb4c80-d081-45a3-9360-d934033b07ed",
+      "name": "Children's Mercy pages"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst responses = $input.all();\nconst originalJobs = $(\"Filter CMH engineering jobs\").all();\n\nif (responses.length !== originalJobs.length) {\n  throw new Error(\"Job detail count does not match original jobs\");\n}\n\nfunction cleanHtml(html) {\n  return String(html || \"\")\n    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, \" \")\n    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, \" \")\n    .replace(/<[^>]+>/g, \" \")\n    .replace(/&nbsp;|&#160;/gi, \" \")\n    .replace(/&amp;/gi, \"&\")\n    .replace(/&#39;|&apos;/gi, \"'\")\n    .replace(/&quot;/gi, '\"')\n    .replace(/&rsquo;|&lsquo;/gi, \"'\")\n    .replace(/&ndash;|&mdash;/gi, \"-\")\n    .replace(/\\s+/g, \" \")\n    .trim();\n}\n\nreturn responses.map((item, index) => {\n  const job = originalJobs[index].json;\n  const html = String(item.json.job_html || item.json.data || \"\");\n\n  const match = html.match(\n    /<div\\b[^>]*class=[\"'][^\"']*iCIMS_JobContent[^\"']*[\"'][^>]*>([\\s\\S]*?)(?=<div\\b[^>]*class=[\"'][^\"']*iCIMS_JobOptions|<footer\\b|$)/i\n  );\n\n  const description = cleanHtml(match?.[1] || \"\");\n\n  if (!description) {\n    throw new Error(`Description missing for ${job.job_key}`);\n  }\n\n  return {\n    json: {\n      ...job,\n      description\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -624
+      ],
+      "id": "bc5ced17-10ce-4023-a5c5-054c57b5e5bd",
+      "name": "Extract CMH descriptions"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst inputs = $input.all();\nconst jobs = [];\n\nfunction clean(value) {\n  return String(value || '')\n    .replace(/<[^>]*>/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&#39;|&apos;/g, \"'\")\n    .replace(/&nbsp;/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfor (const item of inputs) {\n  const html = String(\n    item.json.data ?? item.json.body ?? ''\n  );\n\n  if (!html.includes('iCIMS_JobCardItem')) {\n  if (\n    !html.includes('iCIMS_MainWrapper') &&\n    !html.includes('iCIMS_ListingsPage')\n  ) {\n    throw new Error(\n      'Unexpected response: iCIMS listing HTML not found'\n    );\n  }\n\n  // Valid iCIMS page with no job listings.\n  continue;\n}\n\n  const cards = html.match(\n    /<li\\b[^>]*class=[\"'][^\"']*iCIMS_JobCardItem[^\"']*[\"'][^>]*>[\\s\\S]*?<\\/li>/gi\n  ) || [];\n\n  for (const card of cards) {\n    const linkMatch = card.match(\n      /<a\\b[^>]*href=[\"'](https:\\/\\/jobs-childrensmercykc\\.icims\\.com\\/jobs\\/\\d+\\/[^\"']+)[\"'][^>]*>[\\s\\S]*?<h3[^>]*>([\\s\\S]*?)<\\/h3>/i\n    );\n\n    if (!linkMatch) continue;\n\n    const url = linkMatch[1];\n    const title = clean(linkMatch[2]);\n\n    const id = url.match(/\\/jobs\\/(\\d+)\\//)?.[1];\n    if (!id) continue;\n\n    const locationMatch = card.match(\n      /class=[\"'][^\"']*header left[^\"']*[\"'][^>]*>[\\s\\S]*?<span[^>]*>([\\s\\S]*?)<\\/span>[\\s\\S]*?<span[^>]*>([\\s\\S]*?)<\\/span>/i\n    );\n\n    const rawLocation = clean(locationMatch?.[2]);\n\n    const location = rawLocation\n      .replace(/^US-MO-/, '') \n      .replace(/^US-KS-/, '');\n\n    const state = rawLocation.startsWith('US-MO-')\n      ? 'MO'\n      : rawLocation.startsWith('US-KS-')\n      ? 'KS'\n      : '';\n\n    jobs.push({\n      json: {\n        job_key: `ChildrensMercy:icims:${id}`,\n        company: \"Children's Mercy Hospital\",\n        job_title: title,\n        location: state\n          ? `${location}, ${state}`\n          : rawLocation,\n        apply_url: url,\n        posted_date: '',\n        description: '',\n        first_seen: new Date().toISOString(),\n        match_score: 0,\n        sponsorship_status: 'not_specified',\n        reason: '',\n        notified: false\n      }\n    });\n  }\n}\n\nreturn jobs;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -624
+      ],
+      "id": "60efd8c6-fb71-40f9-9917-599e7a1209e2",
+      "name": "Normalize Children's Mercy jobs"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst keywords = [\n  /\\bsoftware\\b/i,\n  /\\bdata\\b/i,\n  /\\banalytics?\\b/i,\n  /\\binformatics\\b/i,\n  /\\bcloud\\b/i,\n  /\\bplatform\\b/i,\n  /\\bdevops\\b/i,\n  /\\bdatabase\\b/i,\n  /\\bdeveloper\\b/i,\n  /\\bprogrammer\\b/i,\n  /\\bapplications?\\b/i,\n  /\\bbusiness intelligence\\b/i,\n  /\\bsystems? (engineer|analyst|administrator)\\b/i,\n  /\\btechnology\\b/i,\n  /\\bbioinformatics\\b/i\n];\n\nreturn $input.all().filter(item => {\n  const title = String(item.json.job_title || '');\n  return keywords.some(regex => regex.test(title));\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -624
+      ],
+      "id": "dff85d9b-88db-405a-9acd-1dba05e5fadc",
+      "name": "Filter CMH engineering jobs"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.apply_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "job_html"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        -624
+      ],
+      "id": "4032e383-9f99-4ba2-9d86-af85dc6a995a",
+      "name": "Fetch CMH job details"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2120,
+        -580
+      ],
+      "id": "9e371683-2b5f-499a-ae54-a6921d02a830",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Every company remains visible, including sources that still need setup.\nconst sources = [\n  {\n    \"company\": \"AbbVie\",\n    \"ats\": \"smartrecruiters\",\n    \"enabled\": true,\n    \"api_url\": \"https://api.smartrecruiters.com/v1/companies/AbbVie/postings\",\n    \"careers_url\": \"https://careers.abbvie.com/\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"board\": \"AbbVie\",\n    \"fixture\": \"AbbVie\"\n  },\n  {\n    \"company\": \"Thermo Fisher Scientific\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://thermofisher.wd5.myworkdayjobs.com/wday/cxs/thermofisher/ThermoFisherCareers/jobs\",\n    \"careers_url\": \"https://thermofisher.wd5.myworkdayjobs.com/en-US/ThermoFisherCareers\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Thermo Fisher Scientific\"\n  },\n  {\n    \"company\": \"BNY\",\n    \"ats\": \"oracle\",\n    \"enabled\": true,\n    \"api_url\": \"https://eofe.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions\",\n    \"careers_url\": \"https://eofe.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/BNY-Careers\",\n    \"page_size\": 25,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"site\": \"BNY-Careers\",\n    \"fixture\": \"BNY-api\"\n  },\n  {\n    \"company\": \"Optiv\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://optiv.wd5.myworkdayjobs.com/wday/cxs/optiv/Optiv_Careers/jobs\",\n    \"careers_url\": \"https://optiv.wd5.myworkdayjobs.com/en-US/Optiv_Careers\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Optiv\"\n  },\n  {\n    \"company\": \"FMA Logistics\",\n    \"ats\": \"excluded\",\n    \"enabled\": false,\n    \"api_url\": \"\",\n    \"careers_url\": \"\",\n    \"page_size\": 100,\n    \"status\": \"excluded_by_user\",\n    \"notes\": \"Intentionally excluded at the user’s request on October 9, 2026. No setup action required.\"\n  },\n  {\n    \"company\": \"BJC HealthCare\",\n    \"ats\": \"jibe\",\n    \"enabled\": true,\n    \"api_url\": \"https://jobs.bjc.org/api/jobs\",\n    \"careers_url\": \"https://jobs.bjc.org/jobs\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"BJC-api\"\n  },\n  {\n    \"company\": \"Saint Luke's\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://saintlukes.wd1.myworkdayjobs.com/wday/cxs/saintlukes/saintlukeshealthcareers/jobs\",\n    \"careers_url\": \"https://saintlukes.wd1.myworkdayjobs.com/en-US/saintlukeshealthcareers\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"SaintLukes\"\n  },\n  {\n    \"company\": \"Lyft\",\n    \"ats\": \"greenhouse\",\n    \"enabled\": true,\n    \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/lyft/jobs?content=true\",\n    \"careers_url\": \"https://job-boards.greenhouse.io/lyft\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"lyft\"\n  },\n  {\n    \"company\": \"CBIZ\",\n    \"ats\": \"oracle\",\n    \"enabled\": true,\n    \"api_url\": \"https://ebez.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions\",\n    \"careers_url\": \"https://ebez.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1\",\n    \"page_size\": 25,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"site\": \"CX_1\",\n    \"fixture\": \"CBIZ-api\"\n  },\n  {\n    \"company\": \"Sterling Bank & Trust\",\n    \"ats\": \"excluded\",\n    \"enabled\": false,\n    \"api_url\": \"\",\n    \"careers_url\": \"https://www.everbank.com/about/careers\",\n    \"page_size\": 100,\n    \"status\": \"excluded_by_user\",\n    \"notes\": \"Intentionally excluded at the user’s request on October 9, 2026. No setup action required.\"\n  },\n  {\n    \"company\": \"Freddie Mac\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://freddiemac.wd5.myworkdayjobs.com/wday/cxs/freddiemac/External/jobs\",\n    \"careers_url\": \"https://freddiemac.wd5.myworkdayjobs.com/en-US/External\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Freddie-api\"\n  },\n  {\n    \"company\": \"nbkc bank\",\n    \"ats\": \"adp\",\n    \"enabled\": true,\n    \"api_url\": \"https://workforcenow.adp.com/mascsr/default/careercenter/public/events/staffing/v1/job-requisitions?cid=7fda5c87-512f-4538-a009-52effd9fc43c&ccId=19000101_000001&lang=en_US\",\n    \"careers_url\": \"https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=7fda5c87-512f-4538-a009-52effd9fc43c&ccId=19000101_000001&lang=en_US\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"nbkc-api\",\n    \"detail_fixture\": \"nbkc-detail\"\n  },\n  {\n    \"company\": \"PSI Services\",\n    \"ats\": \"ukg\",\n    \"enabled\": true,\n    \"api_url\": \"https://psionline.rec.pro.ukg.net/PSI1500PSIL/JobBoard/287b933d-50bd-4acb-b709-75def54bf55f/JobBoardView/LoadSearchResults\",\n    \"careers_url\": \"https://psionline.rec.pro.ukg.net/PSI1500PSIL/JobBoard/287b933d-50bd-4acb-b709-75def54bf55f\",\n    \"page_size\": 50,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"PSI-api\",\n    \"detail_fixture\": \"PSI-detail\"\n  },\n  {\n    \"company\": \"Jabil\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://jabil.wd5.myworkdayjobs.com/wday/cxs/jabil/Jabil_Careers/jobs\",\n    \"careers_url\": \"https://jabil.wd5.myworkdayjobs.com/en-US/Jabil_Careers\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Jabil\"\n  },\n  {\n    \"company\": \"Highmark\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://highmarkhealth.wd1.myworkdayjobs.com/wday/cxs/highmarkhealth/highmark/jobs\",\n    \"careers_url\": \"https://highmarkhealth.wd1.myworkdayjobs.com/en-US/highmark\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Highmark\"\n  },\n  {\n    \"company\": \"Humana\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://humana.wd5.myworkdayjobs.com/wday/cxs/humana/Humana_External_Career_Site/jobs\",\n    \"careers_url\": \"https://humana.wd5.myworkdayjobs.com/en-US/Humana_External_Career_Site\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Humana\"\n  },\n  {\n    \"company\": \"Staples\",\n    \"ats\": \"staples\",\n    \"enabled\": true,\n    \"api_url\": \"https://careers.staples.com/en/search-jobs\",\n    \"careers_url\": \"https://careers.staples.com\",\n    \"page_size\": 15,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Staples\",\n    \"detail_fixture\": \"Staples-detail\"\n  },\n  {\n    \"company\": \"U-Haul\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://uhaul.wd1.myworkdayjobs.com/wday/cxs/uhaul/UhaulJobs/jobs\",\n    \"careers_url\": \"https://uhaul.wd1.myworkdayjobs.com/en-US/UhaulJobs\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"U-Haul\"\n  },\n  {\n    \"company\": \"Meta\",\n    \"ats\": \"excluded\",\n    \"enabled\": false,\n    \"api_url\": \"\",\n    \"careers_url\": \"https://www.metacareers.com/jobsearch/\",\n    \"page_size\": 100,\n    \"status\": \"excluded_by_user\",\n    \"notes\": \"Intentionally excluded at the user’s request on October 9, 2026. No setup action required.\"\n  },\n  {\n    \"company\": \"TikTok\",\n    \"ats\": \"bytedance\",\n    \"enabled\": true,\n    \"api_url\": \"https://api.lifeattiktok.com/api/v1/public/supplier/search/job/posts\",\n    \"careers_url\": \"https://lifeattiktok.com/search\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"headers\": {\n      \"website-path\": \"tiktok\",\n      \"Accept-Language\": \"en-US\",\n      \"Origin\": \"https://lifeattiktok.com\"\n    },\n    \"fixture\": \"TikTok-api\"\n  },\n  {\n    \"company\": \"Amazon\",\n    \"ats\": \"amazon\",\n    \"enabled\": true,\n    \"api_url\": \"https://www.amazon.jobs/en/search.json\",\n    \"careers_url\": \"https://www.amazon.jobs\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Public search reports at most 10,000 results. Coverage report flags possible cap; newest jobs are fetched first.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Amazon\"\n  },\n  {\n    \"company\": \"ByteDance\",\n    \"ats\": \"bytedance\",\n    \"enabled\": true,\n    \"api_url\": \"https://jobs.bytedance.com/api/v1/public/supplier/search/job/posts\",\n    \"careers_url\": \"https://joinbytedance.com/search\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"headers\": {\n      \"website-path\": \"en\",\n      \"Accept-Language\": \"en-US\",\n      \"Origin\": \"https://joinbytedance.com\"\n    },\n    \"fixture\": \"ByteDance-api\"\n  },\n  {\n    \"company\": \"DoorDash\",\n    \"ats\": \"greenhouse\",\n    \"enabled\": true,\n    \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/doordashusa/jobs?content=true\",\n    \"careers_url\": \"https://job-boards.greenhouse.io/doordashusa\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"doordashusa\"\n  },\n  {\n    \"company\": \"Google\",\n    \"ats\": \"google\",\n    \"enabled\": true,\n    \"api_url\": \"https://www.google.com/about/careers/applications/jobs/results/\",\n    \"careers_url\": \"https://www.google.com/about/careers/applications/jobs/results/\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Public search HTML data parser; schema changes surface as errors.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Google\"\n  },\n  {\n    \"company\": \"Epiq\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://epiqsystems.wd503.myworkdayjobs.com/wday/cxs/epiqsystems/Epiq_Careers/jobs\",\n    \"careers_url\": \"https://epiqsystems.wd503.myworkdayjobs.com/en-US/Epiq_Careers\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Epiq\"\n  },\n  {\n    \"company\": \"Whirlpool\",\n    \"ats\": \"excluded\",\n    \"enabled\": false,\n    \"api_url\": \"\",\n    \"careers_url\": \"https://jobs.whirlpool.com/careers\",\n    \"page_size\": 100,\n    \"status\": \"excluded_by_user\",\n    \"notes\": \"Intentionally excluded at the user’s request on October 9, 2026. No setup action required.\"\n  },\n  {\n    \"company\": \"LG\",\n    \"ats\": \"greenhouse\",\n    \"enabled\": true,\n    \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/lgelectronics/jobs?content=true\",\n    \"careers_url\": \"https://job-boards.greenhouse.io/lgelectronics\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"LG-greenhouse\"\n  },\n  {\n    \"company\": \"Samsung\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://sec.wd3.myworkdayjobs.com/wday/cxs/sec/Samsung_Careers/jobs\",\n    \"careers_url\": \"https://sec.wd3.myworkdayjobs.com/en-US/Samsung_Careers\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Samsung\"\n  },\n  {\n    \"company\": \"Godrej\",\n    \"ats\": \"notice\",\n    \"enabled\": true,\n    \"api_url\": \"https://www.godrejamericas.com/careers.html\",\n    \"careers_url\": \"https://www.godrejamericas.com/careers.html\",\n    \"page_size\": 100,\n    \"status\": \"no_open_positions_notice\",\n    \"notes\": \"US scope: Godrej Americas. Monitors the explicit no-open-positions notice; any change requires review, not automatic job extraction.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Godrej\"\n  },\n  {\n    \"company\": \"Topgolf\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://topgolf.wd501.myworkdayjobs.com/wday/cxs/topgolf/TopgolfCareers/jobs\",\n    \"careers_url\": \"https://topgolf.wd501.myworkdayjobs.com/en-US/TopgolfCareers\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Topgolf\"\n  },\n  {\n    \"company\": \"Amcor\",\n    \"ats\": \"workday\",\n    \"enabled\": true,\n    \"api_url\": \"https://amcor.wd5.myworkdayjobs.com/wday/cxs/amcor/Amcor_External_Career_Site/jobs\",\n    \"careers_url\": \"https://amcor.wd5.myworkdayjobs.com/en-US/Amcor_External_Career_Site\",\n    \"page_size\": 20,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"Full detail retrieval enabled. Some Workday boards cap search results at 2,000; coverage report flags this.\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"Amcor\"\n  },\n  {\n    \"company\": \"Databricks\",\n    \"ats\": \"greenhouse\",\n    \"enabled\": true,\n    \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/databricks/jobs?content=true\",\n    \"careers_url\": \"https://job-boards.greenhouse.io/databricks\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"databricks\"\n  },\n  {\n    \"company\": \"Figma\",\n    \"ats\": \"greenhouse\",\n    \"enabled\": true,\n    \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/figma/jobs?content=true\",\n    \"careers_url\": \"https://job-boards.greenhouse.io/figma\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"figma\"\n  },\n  {\n    \"company\": \"Affirm\",\n    \"ats\": \"greenhouse\",\n    \"enabled\": true,\n    \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/affirm/jobs?content=true\",\n    \"careers_url\": \"https://job-boards.greenhouse.io/affirm\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"affirm\"\n  },\n  {\n    \"company\": \"Cloudflare\",\n    \"ats\": \"greenhouse\",\n    \"enabled\": true,\n    \"api_url\": \"https://boards-api.greenhouse.io/v1/boards/cloudflare/jobs?content=true\",\n    \"careers_url\": \"https://job-boards.greenhouse.io/cloudflare\",\n    \"page_size\": 100,\n    \"status\": \"live_listing_verified\",\n    \"notes\": \"\",\n    \"verified_on\": \"2026-10-09\",\n    \"fixture\": \"cloudflare\"\n  }\n];\nreturn sources.map(source=>({json:source}));"
+      },
+      "id": "efc01740-975b-4833-9ddb-5727d58ba9e0",
+      "name": "Company sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1000,
+        -400
+      ]
+    },
+    {
+      "id": "75fce449-80ea-4e6b-aaf9-d45cb1a97d40",
+      "name": "Enabled source requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Shared pure parsers, embedded in the n8n Code nodes by build_workflow.js.\nfunction clean(v) {\n  return String(v || '').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/<[^>]*>/g,' ')\n    .replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'\"')\n    .replace(/&#39;|&apos;/gi,\"'\").replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(+n))\n    .replace(/\\s+/g,' ').trim();\n}\nfunction bodyOf(response) {\n  if (response.error) throw new Error(typeof response.error==='string'?response.error:JSON.stringify(response.error));\n  if (response.statusCode && (response.statusCode<200 || response.statusCode>=300)) throw new Error('HTTP '+response.statusCode);\n  // n8n Text responses use the configured output field (default: data),\n  // even when Include Response Headers and Status is enabled.\n  const b=response.body ?? (typeof response.data === 'string' ? response.data : response);\n  if(typeof b==='string' && /^[\\s]*[\\[{]/.test(b)) return JSON.parse(b);\n  return b;\n}\nfunction googleData(html) {\n  for(const m of String(html).matchAll(/AF_initDataCallback\\(\\{key:[\\s\\S]*?data:([\\s\\S]*?), sideChannel:/g)) {\n    let d;try{d=JSON.parse(m[1]);}catch{continue;}\n    if(Array.isArray(d?.[0]) && Number.isFinite(d[2]) && Number.isFinite(d[3]) && (!d[0].length || (typeof d[0][0]?.[0]==='string' && Array.isArray(d[0][0]?.[9]))))return d;\n  }\n  throw new Error('Google search data not found; page format may have changed');\n}\nfunction listing(s,b) {\n  let jobs,total;\n  switch(s.ats) {\n    case 'greenhouse':jobs=b.jobs;total=jobs?.length;break;\n    case 'workday':jobs=b.jobPostings;total=b.total;break;\n    case 'smartrecruiters':jobs=b.content;total=b.totalFound;break;\n    case 'oracle':jobs=b.items?.[0]?.requisitionList;total=b.items?.[0]?.TotalJobsCount;break;\n    case 'jibe':jobs=b.jobs?.map(j=>j.data);total=b.count;break;\n    case 'amazon':if(b.error)throw new Error(String(b.error));jobs=b.jobs;total=b.hits;break;\n    case 'bytedance':if(b.code!==0)throw new Error(b.message || 'Career API error');jobs=b.data?.job_post_list;total=b.data?.count;break;\n    case 'adp':jobs=b.jobRequisitions;total=b.meta?.totalNumber;break;\n    case 'ukg':jobs=b.opportunities;total=b.totalCount;break;\n    case 'google': {const d=googleData(b);jobs=d[0];total=d[2];break;}\n    case 'staples': {\n      const html=String(b); jobs=[];\n      for(const m of html.matchAll(/<a\\b[^>]*href=\"([^\"\\s]+\\/job\\/[^\"\\s]+)\"[^>]*data-job-id=\"(\\d+)\"[^>]*>([\\s\\S]*?)<\\/a>/g)) {\n        jobs.push({id:m[2],url:'https://careers.staples.com'+m[1],title:clean(m[3].match(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/)?.[1]),location:clean(m[3].match(/class=\"job-location\"[^>]*>([\\s\\S]*?)<\\/span>/)?.[1])});\n      }\n      const pages=Number(html.match(/class=\"pagination-current\"[^>]*max=\"(\\d+)\"/)?.[1]);\n      if(!jobs.length || !pages)throw new Error('Staples listing format changed or no verifiable pagination');\n      total=pages*s.page_size;break;\n    }\n    case 'notice': {\n      if(!/currently we don.t have any open positions/i.test(clean(b)))throw new Error('Careers page changed: review new openings and add an adapter');\n      jobs=[];total=0;break;\n    }\n    default:throw new Error('Unsupported adapter '+s.ats);\n  }\n  if(!Array.isArray(jobs)||!Number.isFinite(Number(total))||Number(total)<0)throw new Error('Invalid listing schema for '+s.company);\n  return {jobs,total:Number(total)};\n}\nfunction requestFor(s,page=0) {\n  let url=s.api_url, body={}, method='GET';const offset=page*s.page_size;\n  const add=(q)=>{url+=(url.includes('?')?'&':'?')+q;};\n  switch(s.ats) {\n    case 'workday':method='POST';body={limit:s.page_size,offset,searchText:'',appliedFacets:{}};break;\n    case 'smartrecruiters':add('limit='+s.page_size+'&offset='+offset);break;\n    case 'oracle':add('onlyData=true&expand=requisitionList&finder='+encodeURIComponent('findReqs;siteNumber='+s.site+',limit='+s.page_size+',offset='+offset));break;\n    case 'jibe':add('page='+(page+1)+'&limit='+s.page_size);break;\n    case 'amazon':add('offset='+offset+'&result_limit='+s.page_size+'&sort=recent');break;\n    case 'bytedance':method='POST';body={keyword:'',limit:s.page_size,offset};break;\n    case 'adp':add('$top='+s.page_size+'&$skip='+offset);break;\n    case 'ukg':method='POST';body={opportunitySearch:{Top:s.page_size,Skip:offset,QueryString:'',OrderBy:[{Value:'postedDateDesc',PropertyName:'PostedDate',Ascending:false}]}};break;\n    case 'google':add('page='+(page+1));break;\n    case 'staples':add('p='+(page+1));break;\n  }\n  return {kind:'request',source:s,page,url,method,body,headers:{Accept:'application/json,text/html','User-Agent':'Mozilla/5.0',...(s.headers||{})}};\n}\nfunction normalize(s,j) {\n  let id,title,location,url,description='',posted='',detail='',countries=[],locations=[];\n  switch(s.ats) {\n    case 'greenhouse':id=j.id;title=j.title;location=j.location?.name;url=j.absolute_url;description=j.content;posted=j.first_published||'';break;\n    case 'workday':id=j.externalPath;title=j.title;location=j.locationsText;url=s.careers_url+j.externalPath;detail=s.api_url.replace(/\\/jobs$/,'')+j.externalPath;break;\n    case 'smartrecruiters':id=j.id;title=j.name;location=[j.location?.city,j.location?.region,j.location?.country].filter(Boolean).join(', ');countries=[j.location?.country];url='https://jobs.smartrecruiters.com/'+s.board+'/'+j.id;detail='https://api.smartrecruiters.com/v1/companies/'+s.board+'/postings/'+j.id;posted=j.releasedDate;break;\n    case 'oracle':id=j.Id;title=j.Title;location=j.PrimaryLocation;countries=[j.PrimaryLocationCountry];url=s.careers_url+'/job/'+j.Id;detail=s.api_url.replace('recruitingCEJobRequisitions','recruitingCEJobRequisitionDetails')+'?onlyData=true&expand=all&finder='+encodeURIComponent('ById;Id='+j.Id+',siteNumber='+s.site);posted=j.PostedDate;break;\n    case 'jibe':id=j.req_id||j.slug;title=j.title;location=[j.city,j.state,j.country].filter(Boolean).join(', ');countries=[j.country];url=j.apply_url||s.careers_url+'/'+j.slug;description=j.description;posted=j.create_date||'';break;\n    case 'amazon':id=j.id_icims||j.id;title=j.title;location=j.location;countries=[j.country_code];url='https://www.amazon.jobs'+j.job_path;description=[j.description,j.basic_qualifications,j.preferred_qualifications].join('\\n');posted=j.posted_date;break;\n    case 'bytedance':id=j.id;title=j.title;{let p=j.city_info;const parts=[];while(p){parts.push(p.en_name||p.name);p=p.parent;}location=parts.join(', ');if(parts.length)countries=[parts[parts.length-1]];}url=s.careers_url+'/'+j.id;description=[j.description,j.requirement].join('\\n');break;\n    case 'adp':id=j.itemID;title=j.requisitionTitle;locations=(j.requisitionLocations||[]).map(l=>l.nameCode?.shortName||[l.address?.cityName,l.address?.countrySubdivisionLevel1?.codeValue,l.address?.countryCode].filter(Boolean).join(', '));location=locations.join('; ');posted=j.postDate;{const ext=j.customFieldGroup?.stringFields?.find(f=>f.nameCode?.codeValue==='ExternalJobID')?.stringValue;url=s.careers_url+'&jobId='+encodeURIComponent(ext||id);}detail=s.api_url.replace('/job-requisitions?','/job-requisitions/'+encodeURIComponent(id)+'?');break;\n    case 'ukg':id=j.Id;title=j.Title;locations=(j.Locations||[]).map(l=>[l.Address?.City,l.Address?.State?.Name,l.Address?.Country?.Name].filter(Boolean).join(', '));countries=(j.Locations||[]).map(l=>l.Address?.Country?.Code);location=locations.join('; ');url=s.careers_url+'/OpportunityDetail?opportunityId='+id;detail=url;posted=j.PostedDate;break;\n    case 'google':id=j[0];title=j[1];locations=(j[9]||[]).map(l=>l[0]);countries=(j[9]||[]).map(l=>l[5]);location=locations.join('; ');url=s.careers_url+id;description=[j[3]?.[1],j[4]?.[1],j[10]?.[1],j[15]?.[1]].filter(Boolean).join('\\n');posted=j[12]?.[0]?new Date(j[12][0]*1000).toISOString():'';break;\n    case 'staples':id=j.id;title=j.title;location=j.location;url=j.url;detail=url;break;\n    default:throw new Error('No job parser for '+s.ats);\n  }\n  if(!id||!title||!/^https:\\/\\//.test(url||''))throw new Error('Job is missing its ID, title or HTTPS application URL');\n  return {kind:'job',job_key:s.company+':'+s.ats+':'+id,company:s.company,ats:s.ats,job_title:title,location:location||'',locations:locations.length?locations:[location||''],country_codes:countries.filter(Boolean),apply_url:url,posted_date:posted||'',updated_at:j.updated_at||'',description:clean(description).slice(0,13000),detail_url:detail,first_seen:new Date().toISOString(),match_score:0,sponsorship_status:'not_specified',reason:'',notified:false};\n}\nfunction jsonLdJobs(html) {\n  const found=[];\n  function walk(x){if(!x||typeof x!=='object')return;if(x['@type']==='JobPosting'||x['@type']?.includes?.('JobPosting'))found.push(x);for(const v of Object.values(x))if(v&&typeof v==='object')Array.isArray(v)?v.forEach(walk):walk(v);}\n  for(const m of String(html).matchAll(/<script\\b[^>]*type=[\"']application\\/ld\\+json[\"'][^>]*>([\\s\\S]*?)<\\/script>/gi)){try{walk(JSON.parse(m[1]));}catch{}}\n  return found;\n}\nfunction embeddedObject(html,marker) {\n  const start=String(html).indexOf(marker);if(start<0)throw new Error('Embedded job detail not found');\n  const text=String(html).slice(start+marker.length).trimStart();let depth=0,quoted=false,escaped=false;\n  for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(escaped)escaped=false;else if(c==='\\\\')escaped=true;else if(c==='\"')quoted=false;}else if(c==='\"')quoted=true;else if(c==='{')depth++;else if(c==='}'&&--depth===0)return JSON.parse(text.slice(0,i+1));}\n  throw new Error('Incomplete embedded detail JSON');\n}\nfunction enrich(job,b) {\n  let description='',posted=job.posted_date,location=job.location,locations=job.locations,countries=job.country_codes;\n  switch(job.ats){\n    case 'workday':{const d=b.jobPostingInfo;if(!d?.jobDescription)throw new Error('Workday detail missing description');description=d.jobDescription;posted=d.startDate||posted;locations=[d.location,...(d.additionalLocations||[])].filter(Boolean);location=locations.join('; ');countries=[typeof d.country==='object'?(d.country.descriptor||d.country.id):d.country].filter(Boolean);break;}\n    case 'smartrecruiters':{const d=b.jobAd?.sections;if(!d)throw new Error('SmartRecruiters detail missing jobAd');description=Object.values(d).map(x=>x.text||'').join('\\n');break;}\n    case 'oracle':{const d=b.items?.[0];if(!d)throw new Error('Oracle detail missing item');description=[d.ExternalDescriptionStr,d.ExternalQualificationsStr,d.ExternalResponsibilitiesStr].filter(Boolean).join('\\n');break;}\n    case 'adp':description=b.requisitionDescription||b.requisitionDescriptionText||b.jobDescription||'';if(typeof description==='object')description=description.formattedDescription||description.textValue||'';break;\n    case 'ukg':{const d=embeddedObject(b,'new US.Opportunity.CandidateOpportunityDetail(');description=d.Description;posted=d.PostedDate||posted;break;}\n    case 'staples':{const d=jsonLdJobs(b)[0];if(!d)throw new Error('JobPosting structured description not found');description=d.description;posted=d.datePosted||posted;break;}\n    default:throw new Error('Unsupported job details '+job.ats);\n  }\n  description=clean(description);if(!description)throw new Error('Empty full job description');\n  return {...job,description:description.slice(0,13000),location,locations,country_codes:countries,posted_date:posted,detail_url:''};\n}\n\nreturn $input.all().flatMap((item,i)=>item.json.enabled?[{json:requestFor(item.json),pairedItem:{item:i}}]:[]);"
+      },
+      "position": [
+        -760,
+        -400
+      ]
+    },
+    {
+      "id": "ceb777dd-eb84-4df7-b651-2a8f2d1ae8be",
+      "name": "Source setup report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return $input.all().map((item,i)=>({json:{company:item.json.company,status:item.json.status,enabled:item.json.enabled,careers_url:item.json.careers_url,notes:item.json.notes},pairedItem:{item:i}}));"
+      },
+      "position": [
+        -760,
+        -100
+      ]
+    },
+    {
+      "id": "49fb7d71-ec67-4644-9b4e-a5a487fd3589",
+      "name": "Fetch first source pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify($json.headers) }}",
+        "sendBody": "={{ $json.method === \"POST\" }}",
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 30000,
+          "batching": {
+            "batch": {
+              "batchSize": 4,
+              "batchInterval": 250
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "body",
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "position": [
+        -520,
+        -400
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "f1aae04f-eec7-4bd2-88ce-4c5d6aad5182",
+      "name": "Plan source pages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Shared pure parsers, embedded in the n8n Code nodes by build_workflow.js.\nfunction clean(v) {\n  return String(v || '').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/<[^>]*>/g,' ')\n    .replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'\"')\n    .replace(/&#39;|&apos;/gi,\"'\").replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(+n))\n    .replace(/\\s+/g,' ').trim();\n}\nfunction bodyOf(response) {\n  if (response.error) throw new Error(typeof response.error==='string'?response.error:JSON.stringify(response.error));\n  if (response.statusCode && (response.statusCode<200 || response.statusCode>=300)) throw new Error('HTTP '+response.statusCode);\n  // n8n Text responses use the configured output field (default: data),\n  // even when Include Response Headers and Status is enabled.\n  const b=response.body ?? (typeof response.data === 'string' ? response.data : response);\n  if(typeof b==='string' && /^[\\s]*[\\[{]/.test(b)) return JSON.parse(b);\n  return b;\n}\nfunction googleData(html) {\n  for(const m of String(html).matchAll(/AF_initDataCallback\\(\\{key:[\\s\\S]*?data:([\\s\\S]*?), sideChannel:/g)) {\n    let d;try{d=JSON.parse(m[1]);}catch{continue;}\n    if(Array.isArray(d?.[0]) && Number.isFinite(d[2]) && Number.isFinite(d[3]) && (!d[0].length || (typeof d[0][0]?.[0]==='string' && Array.isArray(d[0][0]?.[9]))))return d;\n  }\n  throw new Error('Google search data not found; page format may have changed');\n}\nfunction listing(s,b) {\n  let jobs,total;\n  switch(s.ats) {\n    case 'greenhouse':jobs=b.jobs;total=jobs?.length;break;\n    case 'workday':jobs=b.jobPostings;total=b.total;break;\n    case 'smartrecruiters':jobs=b.content;total=b.totalFound;break;\n    case 'oracle':jobs=b.items?.[0]?.requisitionList;total=b.items?.[0]?.TotalJobsCount;break;\n    case 'jibe':jobs=b.jobs?.map(j=>j.data);total=b.count;break;\n    case 'amazon':if(b.error)throw new Error(String(b.error));jobs=b.jobs;total=b.hits;break;\n    case 'bytedance':if(b.code!==0)throw new Error(b.message || 'Career API error');jobs=b.data?.job_post_list;total=b.data?.count;break;\n    case 'adp':jobs=b.jobRequisitions;total=b.meta?.totalNumber;break;\n    case 'ukg':jobs=b.opportunities;total=b.totalCount;break;\n    case 'google': {const d=googleData(b);jobs=d[0];total=d[2];break;}\n    case 'staples': {\n      const html=String(b); jobs=[];\n      for(const m of html.matchAll(/<a\\b[^>]*href=\"([^\"\\s]+\\/job\\/[^\"\\s]+)\"[^>]*data-job-id=\"(\\d+)\"[^>]*>([\\s\\S]*?)<\\/a>/g)) {\n        jobs.push({id:m[2],url:'https://careers.staples.com'+m[1],title:clean(m[3].match(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/)?.[1]),location:clean(m[3].match(/class=\"job-location\"[^>]*>([\\s\\S]*?)<\\/span>/)?.[1])});\n      }\n      const pages=Number(html.match(/class=\"pagination-current\"[^>]*max=\"(\\d+)\"/)?.[1]);\n      if(!jobs.length || !pages)throw new Error('Staples listing format changed or no verifiable pagination');\n      total=pages*s.page_size;break;\n    }\n    case 'notice': {\n      if(!/currently we don.t have any open positions/i.test(clean(b)))throw new Error('Careers page changed: review new openings and add an adapter');\n      jobs=[];total=0;break;\n    }\n    default:throw new Error('Unsupported adapter '+s.ats);\n  }\n  if(!Array.isArray(jobs)||!Number.isFinite(Number(total))||Number(total)<0)throw new Error('Invalid listing schema for '+s.company);\n  return {jobs,total:Number(total)};\n}\nfunction requestFor(s,page=0) {\n  let url=s.api_url, body={}, method='GET';const offset=page*s.page_size;\n  const add=(q)=>{url+=(url.includes('?')?'&':'?')+q;};\n  switch(s.ats) {\n    case 'workday':method='POST';body={limit:s.page_size,offset,searchText:'',appliedFacets:{}};break;\n    case 'smartrecruiters':add('limit='+s.page_size+'&offset='+offset);break;\n    case 'oracle':add('onlyData=true&expand=requisitionList&finder='+encodeURIComponent('findReqs;siteNumber='+s.site+',limit='+s.page_size+',offset='+offset));break;\n    case 'jibe':add('page='+(page+1)+'&limit='+s.page_size);break;\n    case 'amazon':add('offset='+offset+'&result_limit='+s.page_size+'&sort=recent');break;\n    case 'bytedance':method='POST';body={keyword:'',limit:s.page_size,offset};break;\n    case 'adp':add('$top='+s.page_size+'&$skip='+offset);break;\n    case 'ukg':method='POST';body={opportunitySearch:{Top:s.page_size,Skip:offset,QueryString:'',OrderBy:[{Value:'postedDateDesc',PropertyName:'PostedDate',Ascending:false}]}};break;\n    case 'google':add('page='+(page+1));break;\n    case 'staples':add('p='+(page+1));break;\n  }\n  return {kind:'request',source:s,page,url,method,body,headers:{Accept:'application/json,text/html','User-Agent':'Mozilla/5.0',...(s.headers||{})}};\n}\nfunction normalize(s,j) {\n  let id,title,location,url,description='',posted='',detail='',countries=[],locations=[];\n  switch(s.ats) {\n    case 'greenhouse':id=j.id;title=j.title;location=j.location?.name;url=j.absolute_url;description=j.content;posted=j.first_published||'';break;\n    case 'workday':id=j.externalPath;title=j.title;location=j.locationsText;url=s.careers_url+j.externalPath;detail=s.api_url.replace(/\\/jobs$/,'')+j.externalPath;break;\n    case 'smartrecruiters':id=j.id;title=j.name;location=[j.location?.city,j.location?.region,j.location?.country].filter(Boolean).join(', ');countries=[j.location?.country];url='https://jobs.smartrecruiters.com/'+s.board+'/'+j.id;detail='https://api.smartrecruiters.com/v1/companies/'+s.board+'/postings/'+j.id;posted=j.releasedDate;break;\n    case 'oracle':id=j.Id;title=j.Title;location=j.PrimaryLocation;countries=[j.PrimaryLocationCountry];url=s.careers_url+'/job/'+j.Id;detail=s.api_url.replace('recruitingCEJobRequisitions','recruitingCEJobRequisitionDetails')+'?onlyData=true&expand=all&finder='+encodeURIComponent('ById;Id='+j.Id+',siteNumber='+s.site);posted=j.PostedDate;break;\n    case 'jibe':id=j.req_id||j.slug;title=j.title;location=[j.city,j.state,j.country].filter(Boolean).join(', ');countries=[j.country];url=j.apply_url||s.careers_url+'/'+j.slug;description=j.description;posted=j.create_date||'';break;\n    case 'amazon':id=j.id_icims||j.id;title=j.title;location=j.location;countries=[j.country_code];url='https://www.amazon.jobs'+j.job_path;description=[j.description,j.basic_qualifications,j.preferred_qualifications].join('\\n');posted=j.posted_date;break;\n    case 'bytedance':id=j.id;title=j.title;{let p=j.city_info;const parts=[];while(p){parts.push(p.en_name||p.name);p=p.parent;}location=parts.join(', ');if(parts.length)countries=[parts[parts.length-1]];}url=s.careers_url+'/'+j.id;description=[j.description,j.requirement].join('\\n');break;\n    case 'adp':id=j.itemID;title=j.requisitionTitle;locations=(j.requisitionLocations||[]).map(l=>l.nameCode?.shortName||[l.address?.cityName,l.address?.countrySubdivisionLevel1?.codeValue,l.address?.countryCode].filter(Boolean).join(', '));location=locations.join('; ');posted=j.postDate;{const ext=j.customFieldGroup?.stringFields?.find(f=>f.nameCode?.codeValue==='ExternalJobID')?.stringValue;url=s.careers_url+'&jobId='+encodeURIComponent(ext||id);}detail=s.api_url.replace('/job-requisitions?','/job-requisitions/'+encodeURIComponent(id)+'?');break;\n    case 'ukg':id=j.Id;title=j.Title;locations=(j.Locations||[]).map(l=>[l.Address?.City,l.Address?.State?.Name,l.Address?.Country?.Name].filter(Boolean).join(', '));countries=(j.Locations||[]).map(l=>l.Address?.Country?.Code);location=locations.join('; ');url=s.careers_url+'/OpportunityDetail?opportunityId='+id;detail=url;posted=j.PostedDate;break;\n    case 'google':id=j[0];title=j[1];locations=(j[9]||[]).map(l=>l[0]);countries=(j[9]||[]).map(l=>l[5]);location=locations.join('; ');url=s.careers_url+id;description=[j[3]?.[1],j[4]?.[1],j[10]?.[1],j[15]?.[1]].filter(Boolean).join('\\n');posted=j[12]?.[0]?new Date(j[12][0]*1000).toISOString():'';break;\n    case 'staples':id=j.id;title=j.title;location=j.location;url=j.url;detail=url;break;\n    default:throw new Error('No job parser for '+s.ats);\n  }\n  if(!id||!title||!/^https:\\/\\//.test(url||''))throw new Error('Job is missing its ID, title or HTTPS application URL');\n  return {kind:'job',job_key:s.company+':'+s.ats+':'+id,company:s.company,ats:s.ats,job_title:title,location:location||'',locations:locations.length?locations:[location||''],country_codes:countries.filter(Boolean),apply_url:url,posted_date:posted||'',updated_at:j.updated_at||'',description:clean(description).slice(0,13000),detail_url:detail,first_seen:new Date().toISOString(),match_score:0,sponsorship_status:'not_specified',reason:'',notified:false};\n}\nfunction jsonLdJobs(html) {\n  const found=[];\n  function walk(x){if(!x||typeof x!=='object')return;if(x['@type']==='JobPosting'||x['@type']?.includes?.('JobPosting'))found.push(x);for(const v of Object.values(x))if(v&&typeof v==='object')Array.isArray(v)?v.forEach(walk):walk(v);}\n  for(const m of String(html).matchAll(/<script\\b[^>]*type=[\"']application\\/ld\\+json[\"'][^>]*>([\\s\\S]*?)<\\/script>/gi)){try{walk(JSON.parse(m[1]));}catch{}}\n  return found;\n}\nfunction embeddedObject(html,marker) {\n  const start=String(html).indexOf(marker);if(start<0)throw new Error('Embedded job detail not found');\n  const text=String(html).slice(start+marker.length).trimStart();let depth=0,quoted=false,escaped=false;\n  for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(escaped)escaped=false;else if(c==='\\\\')escaped=true;else if(c==='\"')quoted=false;}else if(c==='\"')quoted=true;else if(c==='{')depth++;else if(c==='}'&&--depth===0)return JSON.parse(text.slice(0,i+1));}\n  throw new Error('Incomplete embedded detail JSON');\n}\nfunction enrich(job,b) {\n  let description='',posted=job.posted_date,location=job.location,locations=job.locations,countries=job.country_codes;\n  switch(job.ats){\n    case 'workday':{const d=b.jobPostingInfo;if(!d?.jobDescription)throw new Error('Workday detail missing description');description=d.jobDescription;posted=d.startDate||posted;locations=[d.location,...(d.additionalLocations||[])].filter(Boolean);location=locations.join('; ');countries=[typeof d.country==='object'?(d.country.descriptor||d.country.id):d.country].filter(Boolean);break;}\n    case 'smartrecruiters':{const d=b.jobAd?.sections;if(!d)throw new Error('SmartRecruiters detail missing jobAd');description=Object.values(d).map(x=>x.text||'').join('\\n');break;}\n    case 'oracle':{const d=b.items?.[0];if(!d)throw new Error('Oracle detail missing item');description=[d.ExternalDescriptionStr,d.ExternalQualificationsStr,d.ExternalResponsibilitiesStr].filter(Boolean).join('\\n');break;}\n    case 'adp':description=b.requisitionDescription||b.requisitionDescriptionText||b.jobDescription||'';if(typeof description==='object')description=description.formattedDescription||description.textValue||'';break;\n    case 'ukg':{const d=embeddedObject(b,'new US.Opportunity.CandidateOpportunityDetail(');description=d.Description;posted=d.PostedDate||posted;break;}\n    case 'staples':{const d=jsonLdJobs(b)[0];if(!d)throw new Error('JobPosting structured description not found');description=d.description;posted=d.datePosted||posted;break;}\n    default:throw new Error('Unsupported job details '+job.ats);\n  }\n  description=clean(description);if(!description)throw new Error('Empty full job description');\n  return {...job,description:description.slice(0,13000),location,locations,country_codes:countries,posted_date:posted,detail_url:''};\n}\n\nconst out=[];\nfor(let i=0;i<$input.all().length;i++){\n const s=$('Enabled source requests').itemMatching(i).json.source;\n try{const data=listing(s,bodyOf($input.all()[i].json));const pageSize=data.jobs.length||s.page_size;\n const pages=Math.max(1,Math.ceil(data.total/pageSize));\n if(pages>500)throw new Error('Source exceeds 500-page guard: '+pages+' pages; refine source before enabling');\n out.push({json:{kind:'plan_status',company:s.company,status:'planned',total:data.total,pages,warning:s.ats==='workday'&&data.total>=2000?'Workday may cap results at 2000':s.ats==='amazon'&&data.total>=10000?'Amazon may cap results at 10000':''},pairedItem:{item:i}});\n for(let page=0;page<pages;page++)out.push({json:{...requestFor({...s,page_size:pageSize},page),expected_total:data.total,expected_pages:pages},pairedItem:{item:i}});\n }catch(e){out.push({json:{kind:'plan_status',company:s.company,status:'error',error:e.message},pairedItem:{item:i}});}\n}\nreturn out;"
+      },
+      "position": [
+        -280,
+        -400
+      ]
+    },
+    {
+      "id": "8156c2ed-fdc5-4b71-a3a8-14423abdfef3",
+      "name": "First page failures",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return $input.all().filter(x=>x.json.kind==='plan_status');"
+      },
+      "position": [
+        -40,
+        -100
+      ]
+    },
+    {
+      "id": "5067aa70-88d9-425b-92f0-41304b636b80",
+      "name": "Page requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return $input.all().flatMap((x,i)=>x.json.kind==='request'?[{json:x.json,pairedItem:{item:i}}]:[]);"
+      },
+      "position": [
+        -40,
+        -400
+      ]
+    },
+    {
+      "id": "26b62c3f-ea78-4d8d-a53d-833d65ea0d48",
+      "name": "Fetch all source pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify($json.headers) }}",
+        "sendBody": "={{ $json.method === \"POST\" }}",
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 30000,
+          "batching": {
+            "batch": {
+              "batchSize": 4,
+              "batchInterval": 250
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "body",
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "position": [
+        200,
+        -400
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "e6c8e9fc-48b0-4cac-aea9-9bc3e17cb534",
+      "name": "Normalize company pages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Shared pure parsers, embedded in the n8n Code nodes by build_workflow.js.\nfunction clean(v) {\n  return String(v || '').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/<[^>]*>/g,' ')\n    .replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'\"')\n    .replace(/&#39;|&apos;/gi,\"'\").replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(+n))\n    .replace(/\\s+/g,' ').trim();\n}\nfunction bodyOf(response) {\n  if (response.error) throw new Error(typeof response.error==='string'?response.error:JSON.stringify(response.error));\n  if (response.statusCode && (response.statusCode<200 || response.statusCode>=300)) throw new Error('HTTP '+response.statusCode);\n  // n8n Text responses use the configured output field (default: data),\n  // even when Include Response Headers and Status is enabled.\n  const b=response.body ?? (typeof response.data === 'string' ? response.data : response);\n  if(typeof b==='string' && /^[\\s]*[\\[{]/.test(b)) return JSON.parse(b);\n  return b;\n}\nfunction googleData(html) {\n  for(const m of String(html).matchAll(/AF_initDataCallback\\(\\{key:[\\s\\S]*?data:([\\s\\S]*?), sideChannel:/g)) {\n    let d;try{d=JSON.parse(m[1]);}catch{continue;}\n    if(Array.isArray(d?.[0]) && Number.isFinite(d[2]) && Number.isFinite(d[3]) && (!d[0].length || (typeof d[0][0]?.[0]==='string' && Array.isArray(d[0][0]?.[9]))))return d;\n  }\n  throw new Error('Google search data not found; page format may have changed');\n}\nfunction listing(s,b) {\n  let jobs,total;\n  switch(s.ats) {\n    case 'greenhouse':jobs=b.jobs;total=jobs?.length;break;\n    case 'workday':jobs=b.jobPostings;total=b.total;break;\n    case 'smartrecruiters':jobs=b.content;total=b.totalFound;break;\n    case 'oracle':jobs=b.items?.[0]?.requisitionList;total=b.items?.[0]?.TotalJobsCount;break;\n    case 'jibe':jobs=b.jobs?.map(j=>j.data);total=b.count;break;\n    case 'amazon':if(b.error)throw new Error(String(b.error));jobs=b.jobs;total=b.hits;break;\n    case 'bytedance':if(b.code!==0)throw new Error(b.message || 'Career API error');jobs=b.data?.job_post_list;total=b.data?.count;break;\n    case 'adp':jobs=b.jobRequisitions;total=b.meta?.totalNumber;break;\n    case 'ukg':jobs=b.opportunities;total=b.totalCount;break;\n    case 'google': {const d=googleData(b);jobs=d[0];total=d[2];break;}\n    case 'staples': {\n      const html=String(b); jobs=[];\n      for(const m of html.matchAll(/<a\\b[^>]*href=\"([^\"\\s]+\\/job\\/[^\"\\s]+)\"[^>]*data-job-id=\"(\\d+)\"[^>]*>([\\s\\S]*?)<\\/a>/g)) {\n        jobs.push({id:m[2],url:'https://careers.staples.com'+m[1],title:clean(m[3].match(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/)?.[1]),location:clean(m[3].match(/class=\"job-location\"[^>]*>([\\s\\S]*?)<\\/span>/)?.[1])});\n      }\n      const pages=Number(html.match(/class=\"pagination-current\"[^>]*max=\"(\\d+)\"/)?.[1]);\n      if(!jobs.length || !pages)throw new Error('Staples listing format changed or no verifiable pagination');\n      total=pages*s.page_size;break;\n    }\n    case 'notice': {\n      if(!/currently we don.t have any open positions/i.test(clean(b)))throw new Error('Careers page changed: review new openings and add an adapter');\n      jobs=[];total=0;break;\n    }\n    default:throw new Error('Unsupported adapter '+s.ats);\n  }\n  if(!Array.isArray(jobs)||!Number.isFinite(Number(total))||Number(total)<0)throw new Error('Invalid listing schema for '+s.company);\n  return {jobs,total:Number(total)};\n}\nfunction requestFor(s,page=0) {\n  let url=s.api_url, body={}, method='GET';const offset=page*s.page_size;\n  const add=(q)=>{url+=(url.includes('?')?'&':'?')+q;};\n  switch(s.ats) {\n    case 'workday':method='POST';body={limit:s.page_size,offset,searchText:'',appliedFacets:{}};break;\n    case 'smartrecruiters':add('limit='+s.page_size+'&offset='+offset);break;\n    case 'oracle':add('onlyData=true&expand=requisitionList&finder='+encodeURIComponent('findReqs;siteNumber='+s.site+',limit='+s.page_size+',offset='+offset));break;\n    case 'jibe':add('page='+(page+1)+'&limit='+s.page_size);break;\n    case 'amazon':add('offset='+offset+'&result_limit='+s.page_size+'&sort=recent');break;\n    case 'bytedance':method='POST';body={keyword:'',limit:s.page_size,offset};break;\n    case 'adp':add('$top='+s.page_size+'&$skip='+offset);break;\n    case 'ukg':method='POST';body={opportunitySearch:{Top:s.page_size,Skip:offset,QueryString:'',OrderBy:[{Value:'postedDateDesc',PropertyName:'PostedDate',Ascending:false}]}};break;\n    case 'google':add('page='+(page+1));break;\n    case 'staples':add('p='+(page+1));break;\n  }\n  return {kind:'request',source:s,page,url,method,body,headers:{Accept:'application/json,text/html','User-Agent':'Mozilla/5.0',...(s.headers||{})}};\n}\nfunction normalize(s,j) {\n  let id,title,location,url,description='',posted='',detail='',countries=[],locations=[];\n  switch(s.ats) {\n    case 'greenhouse':id=j.id;title=j.title;location=j.location?.name;url=j.absolute_url;description=j.content;posted=j.first_published||'';break;\n    case 'workday':id=j.externalPath;title=j.title;location=j.locationsText;url=s.careers_url+j.externalPath;detail=s.api_url.replace(/\\/jobs$/,'')+j.externalPath;break;\n    case 'smartrecruiters':id=j.id;title=j.name;location=[j.location?.city,j.location?.region,j.location?.country].filter(Boolean).join(', ');countries=[j.location?.country];url='https://jobs.smartrecruiters.com/'+s.board+'/'+j.id;detail='https://api.smartrecruiters.com/v1/companies/'+s.board+'/postings/'+j.id;posted=j.releasedDate;break;\n    case 'oracle':id=j.Id;title=j.Title;location=j.PrimaryLocation;countries=[j.PrimaryLocationCountry];url=s.careers_url+'/job/'+j.Id;detail=s.api_url.replace('recruitingCEJobRequisitions','recruitingCEJobRequisitionDetails')+'?onlyData=true&expand=all&finder='+encodeURIComponent('ById;Id='+j.Id+',siteNumber='+s.site);posted=j.PostedDate;break;\n    case 'jibe':id=j.req_id||j.slug;title=j.title;location=[j.city,j.state,j.country].filter(Boolean).join(', ');countries=[j.country];url=j.apply_url||s.careers_url+'/'+j.slug;description=j.description;posted=j.create_date||'';break;\n    case 'amazon':id=j.id_icims||j.id;title=j.title;location=j.location;countries=[j.country_code];url='https://www.amazon.jobs'+j.job_path;description=[j.description,j.basic_qualifications,j.preferred_qualifications].join('\\n');posted=j.posted_date;break;\n    case 'bytedance':id=j.id;title=j.title;{let p=j.city_info;const parts=[];while(p){parts.push(p.en_name||p.name);p=p.parent;}location=parts.join(', ');if(parts.length)countries=[parts[parts.length-1]];}url=s.careers_url+'/'+j.id;description=[j.description,j.requirement].join('\\n');break;\n    case 'adp':id=j.itemID;title=j.requisitionTitle;locations=(j.requisitionLocations||[]).map(l=>l.nameCode?.shortName||[l.address?.cityName,l.address?.countrySubdivisionLevel1?.codeValue,l.address?.countryCode].filter(Boolean).join(', '));location=locations.join('; ');posted=j.postDate;{const ext=j.customFieldGroup?.stringFields?.find(f=>f.nameCode?.codeValue==='ExternalJobID')?.stringValue;url=s.careers_url+'&jobId='+encodeURIComponent(ext||id);}detail=s.api_url.replace('/job-requisitions?','/job-requisitions/'+encodeURIComponent(id)+'?');break;\n    case 'ukg':id=j.Id;title=j.Title;locations=(j.Locations||[]).map(l=>[l.Address?.City,l.Address?.State?.Name,l.Address?.Country?.Name].filter(Boolean).join(', '));countries=(j.Locations||[]).map(l=>l.Address?.Country?.Code);location=locations.join('; ');url=s.careers_url+'/OpportunityDetail?opportunityId='+id;detail=url;posted=j.PostedDate;break;\n    case 'google':id=j[0];title=j[1];locations=(j[9]||[]).map(l=>l[0]);countries=(j[9]||[]).map(l=>l[5]);location=locations.join('; ');url=s.careers_url+id;description=[j[3]?.[1],j[4]?.[1],j[10]?.[1],j[15]?.[1]].filter(Boolean).join('\\n');posted=j[12]?.[0]?new Date(j[12][0]*1000).toISOString():'';break;\n    case 'staples':id=j.id;title=j.title;location=j.location;url=j.url;detail=url;break;\n    default:throw new Error('No job parser for '+s.ats);\n  }\n  if(!id||!title||!/^https:\\/\\//.test(url||''))throw new Error('Job is missing its ID, title or HTTPS application URL');\n  return {kind:'job',job_key:s.company+':'+s.ats+':'+id,company:s.company,ats:s.ats,job_title:title,location:location||'',locations:locations.length?locations:[location||''],country_codes:countries.filter(Boolean),apply_url:url,posted_date:posted||'',updated_at:j.updated_at||'',description:clean(description).slice(0,13000),detail_url:detail,first_seen:new Date().toISOString(),match_score:0,sponsorship_status:'not_specified',reason:'',notified:false};\n}\nfunction jsonLdJobs(html) {\n  const found=[];\n  function walk(x){if(!x||typeof x!=='object')return;if(x['@type']==='JobPosting'||x['@type']?.includes?.('JobPosting'))found.push(x);for(const v of Object.values(x))if(v&&typeof v==='object')Array.isArray(v)?v.forEach(walk):walk(v);}\n  for(const m of String(html).matchAll(/<script\\b[^>]*type=[\"']application\\/ld\\+json[\"'][^>]*>([\\s\\S]*?)<\\/script>/gi)){try{walk(JSON.parse(m[1]));}catch{}}\n  return found;\n}\nfunction embeddedObject(html,marker) {\n  const start=String(html).indexOf(marker);if(start<0)throw new Error('Embedded job detail not found');\n  const text=String(html).slice(start+marker.length).trimStart();let depth=0,quoted=false,escaped=false;\n  for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(escaped)escaped=false;else if(c==='\\\\')escaped=true;else if(c==='\"')quoted=false;}else if(c==='\"')quoted=true;else if(c==='{')depth++;else if(c==='}'&&--depth===0)return JSON.parse(text.slice(0,i+1));}\n  throw new Error('Incomplete embedded detail JSON');\n}\nfunction enrich(job,b) {\n  let description='',posted=job.posted_date,location=job.location,locations=job.locations,countries=job.country_codes;\n  switch(job.ats){\n    case 'workday':{const d=b.jobPostingInfo;if(!d?.jobDescription)throw new Error('Workday detail missing description');description=d.jobDescription;posted=d.startDate||posted;locations=[d.location,...(d.additionalLocations||[])].filter(Boolean);location=locations.join('; ');countries=[typeof d.country==='object'?(d.country.descriptor||d.country.id):d.country].filter(Boolean);break;}\n    case 'smartrecruiters':{const d=b.jobAd?.sections;if(!d)throw new Error('SmartRecruiters detail missing jobAd');description=Object.values(d).map(x=>x.text||'').join('\\n');break;}\n    case 'oracle':{const d=b.items?.[0];if(!d)throw new Error('Oracle detail missing item');description=[d.ExternalDescriptionStr,d.ExternalQualificationsStr,d.ExternalResponsibilitiesStr].filter(Boolean).join('\\n');break;}\n    case 'adp':description=b.requisitionDescription||b.requisitionDescriptionText||b.jobDescription||'';if(typeof description==='object')description=description.formattedDescription||description.textValue||'';break;\n    case 'ukg':{const d=embeddedObject(b,'new US.Opportunity.CandidateOpportunityDetail(');description=d.Description;posted=d.PostedDate||posted;break;}\n    case 'staples':{const d=jsonLdJobs(b)[0];if(!d)throw new Error('JobPosting structured description not found');description=d.description;posted=d.datePosted||posted;break;}\n    default:throw new Error('Unsupported job details '+job.ats);\n  }\n  description=clean(description);if(!description)throw new Error('Empty full job description');\n  return {...job,description:description.slice(0,13000),location,locations,country_codes:countries,posted_date:posted,detail_url:''};\n}\n\nconst out=[];\nfor(let i=0;i<$input.all().length;i++){const req=$('Page requests').itemMatching(i).json;const s=req.source;\n try{const data=listing(s,bodyOf($input.all()[i].json));let malformed=0;\n for(const j of data.jobs){try{out.push({json:normalize(s,j),pairedItem:{item:i}});}catch(e){malformed++;}}\n out.push({json:{kind:'page_status',company:s.company,page:req.page,status:malformed?'partial':'ok',jobs:data.jobs.length,malformed,expected_pages:req.expected_pages,expected_total:req.expected_total},pairedItem:{item:i}});\n }catch(e){out.push({json:{kind:'page_status',company:s.company,page:req.page,status:'error',error:e.message,expected_pages:req.expected_pages},pairedItem:{item:i}});}\n}\nreturn out;"
+      },
+      "position": [
+        440,
+        -400
+      ]
+    },
+    {
+      "id": "082580ba-07a4-4689-b77e-c6a1e370523b",
+      "name": "Source coverage report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const records=$input.all().map(x=>x.json);const plans=$('Plan source pages').all().map(x=>x.json).filter(x=>x.kind==='plan_status');\nreturn $('Company sources').all().map(({json:s})=>{const plan=plans.find(p=>p.company===s.company);const pages=records.filter(p=>p.kind==='page_status'&&p.company===s.company);const jobs=records.filter(p=>p.kind==='job'&&p.company===s.company);const unique=new Set(jobs.map(j=>j.job_key)).size;const errors=pages.filter(p=>p.status!=='ok');let status=!s.enabled?s.status:plan?.status==='error'?'error':errors.length?'partial':pages.length!==(plan?.pages||0)?'partial':plan?.warning?'partial':unique<(plan?.total||0)&&!['staples','notice'].includes(s.ats)?'partial':'ok';\nreturn {json:{company:s.company,status,enabled:s.enabled,pages_expected:plan?.pages||0,pages_received:pages.length,unique_jobs:unique,reported_total:plan?.total??null,warning:plan?.warning||'',errors:[plan?.error,...errors.map(e=>e.error||'Malformed job records')].filter(Boolean),careers_url:s.careers_url,notes:s.notes}};});"
+      },
+      "position": [
+        680,
+        -100
+      ]
+    },
+    {
+      "id": "3d376663-70d8-44ef-a00e-0f0fa7136221",
+      "name": "Engineering title candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const seen=new Set();\nconst items=$input.all().flatMap((x,i)=>{if(x.json.kind!=='job'||seen.has(x.json.job_key))return [];seen.add(x.json.job_key);return [{json:x.json,pairedItem:{item:i}}];});\n\nconst jobs = items;\n\n// ============================================\n// TARGET JOB TITLES\n// ============================================\n\nconst target =\n  /\\b(software|java|python|backend|back.end|full.stack|developer|application engineer|api engineer|microservices|data engineer|data engineering|data platform|databricks|pyspark|spark engineer|cloud|aws|azure|devops|etl|analytics engineer|integration engineer|platform engineer|machine learning engineer|ml engineer|site reliability engineer|sre|infrastructure engineer|systems engineer|database engineer|data scientist)\\b/i;\n\n// ============================================\n// EXCLUDED JOB TITLES\n// ============================================\n\nconst reject =\n  /\\b(intern|internship|director|vice president|vp|chief|recruiter|sales engineer|support engineer|principal|staff|engineering manager)\\b/i;\n\n// ============================================\n// US STATE ABBREVIATIONS\n// ============================================\n\nconst usStates = new Set([\n  \"AL\",\"AK\",\"AZ\",\"AR\",\"CA\",\"CO\",\"CT\",\"DE\",\"FL\",\"GA\",\n  \"HI\",\"ID\",\"IL\",\"IN\",\"IA\",\"KS\",\"KY\",\"LA\",\"ME\",\"MD\",\n  \"MA\",\"MI\",\"MN\",\"MS\",\"MO\",\"MT\",\"NE\",\"NV\",\"NH\",\"NJ\",\n  \"NM\",\"NY\",\"NC\",\"ND\",\"OH\",\"OK\",\"OR\",\"PA\",\"RI\",\"SC\",\n  \"SD\",\"TN\",\"TX\",\"UT\",\"VT\",\"VA\",\"WA\",\"WV\",\"WI\",\"WY\",\"DC\"\n]);\n\n// ============================================\n// FULL US STATE NAMES\n// ============================================\n\nconst usStateNames = [\n  \"Alabama\",\"Alaska\",\"Arizona\",\"Arkansas\",\"California\",\n  \"Colorado\",\"Connecticut\",\"Delaware\",\"Florida\",\"Georgia\",\n  \"Hawaii\",\"Idaho\",\"Illinois\",\"Indiana\",\"Iowa\",\"Kansas\",\n  \"Kentucky\",\"Louisiana\",\"Maine\",\"Maryland\",\"Massachusetts\",\n  \"Michigan\",\"Minnesota\",\"Mississippi\",\"Missouri\",\"Montana\",\n  \"Nebraska\",\"Nevada\",\"New Hampshire\",\"New Jersey\",\n  \"New Mexico\",\"New York\",\"North Carolina\",\"North Dakota\",\n  \"Ohio\",\"Oklahoma\",\"Oregon\",\"Pennsylvania\",\"Rhode Island\",\n  \"South Carolina\",\"South Dakota\",\"Tennessee\",\"Texas\",\n  \"Utah\",\"Vermont\",\"Virginia\",\"Washington\",\"West Virginia\",\n  \"Wisconsin\",\"Wyoming\",\"District of Columbia\"\n];\n\n// ============================================\n// COMMON US CITIES\n// ============================================\n\nconst usCities = [\n  \"San Francisco\",\"San Jose\",\"Mountain View\",\"Sunnyvale\",\n  \"Palo Alto\",\"Santa Clara\",\"Redwood City\",\"Menlo Park\",\n  \"Los Angeles\",\"San Diego\",\"Sacramento\",\"Irvine\",\n  \"New York\",\"Brooklyn\",\"Seattle\",\"Bellevue\",\"Redmond\",\n  \"Austin\",\"Dallas\",\"Houston\",\"Plano\",\"Fort Worth\",\n  \"Boston\",\"Cambridge\",\"Chicago\",\"Denver\",\"Boulder\",\n  \"Atlanta\",\"Miami\",\"Orlando\",\"Tampa\",\n  \"Washington DC\",\"Washington D.C.\",\n  \"Arlington\",\"Reston\",\"Ashburn\",\"McLean\",\n  \"Kansas City\",\"Overland Park\",\"St. Louis\",\n  \"Philadelphia\",\"Pittsburgh\",\"Raleigh\",\"Durham\",\n  \"Charlotte\",\"Columbus\",\"Cincinnati\",\"Cleveland\",\n  \"Detroit\",\"Minneapolis\",\"Nashville\",\"Phoenix\",\n  \"Salt Lake City\",\"Portland\",\"Indianapolis\",\n  \"Madison\",\"Milwaukee\",\"Omaha\",\"Des Moines\",\n  \"San Antonio\",\"Richardson\",\"Irving\",\"Frisco\",\n  \"Bentonville\",\"Fayetteville\",\"Little Rock\",\n  \"Ann Arbor\",\"Boise\",\"Reno\",\"Las Vegas\",\n  \"Tempe\",\"Scottsdale\",\"Chandler\",\"Mesa\",\n  \"Wilmington\",\"Newark\",\"Jersey City\",\n  \"Baltimore\",\"Bethesda\",\"Rockville\",\n  \"Columbia\",\"Charleston\",\"Richmond\",\n  \"Huntsville\",\"Birmingham\",\"Louisville\",\n  \"Lexington\",\"Knoxville\",\"Chattanooga\",\n  \"Memphis\",\"New Orleans\",\"Baton Rouge\",\n  \"Jacksonville\",\"Fort Lauderdale\",\n  \"West Palm Beach\",\"Fort Myers\",\n  \"Rochester\",\"Albany\",\"Buffalo\",\"Syracuse\",\n  \"Princeton\",\"Bridgewater\",\"Edison\",\n  \"Fremont\",\"Pleasanton\",\"Dublin\",\n  \"Oakland\",\"Berkeley\",\"Emeryville\",\n  \"San Mateo\",\"San Bruno\",\"South San Francisco\",\n  \"Cupertino\",\"Milpitas\",\"Campbell\"\n];\n\n// ============================================\n// LOCATION HELPERS\n// ============================================\n\nfunction escapeRegex(value) {\n  return value.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\");\n}\n\nfunction containsPlace(text, place) {\n  const pattern = new RegExp(\n    `(^|[^a-z])${escapeRegex(place)}(?=$|[^a-z])`,\n    \"i\"\n  );\n\n  return pattern.test(text);\n}\n\nfunction isUSLocation(location) {\n  const loc = String(location || \"\").trim();\n\n  if (!loc) return false;\n\n  // Reject explicitly foreign locations\n  const foreign =\n    /\\b(canada|toronto|montreal|montréal|vancouver|ottawa|india|united kingdom|uk|london|europe|germany|france|poland|mexico|singapore|australia|netherlands|ireland|japan|brazil|china|spain|italy|sweden|switzerland|denmark|norway|finland|portugal|israel|united arab emirates|dubai|uae|south korea|taiwan|hong kong)\\b/i;\n\n  if (foreign.test(loc)) {\n    return false;\n  }\n\n  // Explicit US locations\n  if (/\\b(united states|usa|u\\.s\\.a\\.|u\\.s\\.)\\b/i.test(loc)) {\n    return true;\n  }\n\n  // City followed by US state abbreviation\n  const matches =\n    [...loc.matchAll(/,\\s*([A-Za-z]{2})\\b/g)];\n\n  if (matches.some(\n    m => usStates.has(m[1].toUpperCase())\n  )) {\n    return true;\n  }\n\n  // Full US state names\n  if (usStateNames.some(\n    state => containsPlace(loc, state)\n  )) {\n    return true;\n  }\n\n  // Recognized US city names\n  if (usCities.some(\n    city => containsPlace(loc, city)\n  )) {\n    return true;\n  }\n\n  return false;\n}\n\n// ============================================\n// FILTER AND RETURN JOBS\n// ============================================\n\nreturn jobs.filter(item => {\n  const job = item.json;\n\n  const title = String(job.job_title || \"\");\n  const location = String(job.location || \"\");\n\n  return (\n    target.test(title) &&\n    !reject.test(title) &&\n    true\n  );\n});\n"
+      },
+      "position": [
+        680,
+        -400
+      ]
+    },
+    {
+      "id": "f96b787e-21f2-4353-9180-5938345bb3b6",
+      "name": "Description batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const jobs=$input.all().map(x=>x.json);return [{json:{kind:'description_batch',jobs,needs_detail:jobs.some(j=>Boolean(j.detail_url))}}];"
+      },
+      "position": [
+        920,
+        -400
+      ]
+    },
+    {
+      "id": "a737b67c-e4e2-4d76-a4d7-764e60c8551e",
+      "name": "Needs full description",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c9d6fd68-1582-4330-ac15-088404a58969",
+              "leftValue": "={{ $json.needs_detail }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1160,
+        -400
+      ]
+    },
+    {
+      "id": "f33679e4-d004-4d3a-b117-e3597d9a313b",
+      "name": "Description requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return $input.first().json.jobs.filter(j=>j.detail_url).map(j=>({json:j,pairedItem:{item:0}}));"
+      },
+      "position": [
+        1400,
+        -480
+      ]
+    },
+    {
+      "id": "63ca2869-ec32-4956-89c6-c9408b2a5e6d",
+      "name": "Fetch full descriptions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.detail_url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify({Accept:\"application/json,text/html\", \"User-Agent\":\"Mozilla/5.0\"}) }}",
+        "options": {
+          "timeout": 30000,
+          "batching": {
+            "batch": {
+              "batchSize": 4,
+              "batchInterval": 250
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "body",
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "position": [
+        1640,
+        -480
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "22efb381-aa3d-4c57-b6cc-39b19816181d",
+      "name": "Enrich full descriptions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Shared pure parsers, embedded in the n8n Code nodes by build_workflow.js.\nfunction clean(v) {\n  return String(v || '').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/<[^>]*>/g,' ')\n    .replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'\"')\n    .replace(/&#39;|&apos;/gi,\"'\").replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(+n))\n    .replace(/\\s+/g,' ').trim();\n}\nfunction bodyOf(response) {\n  if (response.error) throw new Error(typeof response.error==='string'?response.error:JSON.stringify(response.error));\n  if (response.statusCode && (response.statusCode<200 || response.statusCode>=300)) throw new Error('HTTP '+response.statusCode);\n  // n8n Text responses use the configured output field (default: data),\n  // even when Include Response Headers and Status is enabled.\n  const b=response.body ?? (typeof response.data === 'string' ? response.data : response);\n  if(typeof b==='string' && /^[\\s]*[\\[{]/.test(b)) return JSON.parse(b);\n  return b;\n}\nfunction googleData(html) {\n  for(const m of String(html).matchAll(/AF_initDataCallback\\(\\{key:[\\s\\S]*?data:([\\s\\S]*?), sideChannel:/g)) {\n    let d;try{d=JSON.parse(m[1]);}catch{continue;}\n    if(Array.isArray(d?.[0]) && Number.isFinite(d[2]) && Number.isFinite(d[3]) && (!d[0].length || (typeof d[0][0]?.[0]==='string' && Array.isArray(d[0][0]?.[9]))))return d;\n  }\n  throw new Error('Google search data not found; page format may have changed');\n}\nfunction listing(s,b) {\n  let jobs,total;\n  switch(s.ats) {\n    case 'greenhouse':jobs=b.jobs;total=jobs?.length;break;\n    case 'workday':jobs=b.jobPostings;total=b.total;break;\n    case 'smartrecruiters':jobs=b.content;total=b.totalFound;break;\n    case 'oracle':jobs=b.items?.[0]?.requisitionList;total=b.items?.[0]?.TotalJobsCount;break;\n    case 'jibe':jobs=b.jobs?.map(j=>j.data);total=b.count;break;\n    case 'amazon':if(b.error)throw new Error(String(b.error));jobs=b.jobs;total=b.hits;break;\n    case 'bytedance':if(b.code!==0)throw new Error(b.message || 'Career API error');jobs=b.data?.job_post_list;total=b.data?.count;break;\n    case 'adp':jobs=b.jobRequisitions;total=b.meta?.totalNumber;break;\n    case 'ukg':jobs=b.opportunities;total=b.totalCount;break;\n    case 'google': {const d=googleData(b);jobs=d[0];total=d[2];break;}\n    case 'staples': {\n      const html=String(b); jobs=[];\n      for(const m of html.matchAll(/<a\\b[^>]*href=\"([^\"\\s]+\\/job\\/[^\"\\s]+)\"[^>]*data-job-id=\"(\\d+)\"[^>]*>([\\s\\S]*?)<\\/a>/g)) {\n        jobs.push({id:m[2],url:'https://careers.staples.com'+m[1],title:clean(m[3].match(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/)?.[1]),location:clean(m[3].match(/class=\"job-location\"[^>]*>([\\s\\S]*?)<\\/span>/)?.[1])});\n      }\n      const pages=Number(html.match(/class=\"pagination-current\"[^>]*max=\"(\\d+)\"/)?.[1]);\n      if(!jobs.length || !pages)throw new Error('Staples listing format changed or no verifiable pagination');\n      total=pages*s.page_size;break;\n    }\n    case 'notice': {\n      if(!/currently we don.t have any open positions/i.test(clean(b)))throw new Error('Careers page changed: review new openings and add an adapter');\n      jobs=[];total=0;break;\n    }\n    default:throw new Error('Unsupported adapter '+s.ats);\n  }\n  if(!Array.isArray(jobs)||!Number.isFinite(Number(total))||Number(total)<0)throw new Error('Invalid listing schema for '+s.company);\n  return {jobs,total:Number(total)};\n}\nfunction requestFor(s,page=0) {\n  let url=s.api_url, body={}, method='GET';const offset=page*s.page_size;\n  const add=(q)=>{url+=(url.includes('?')?'&':'?')+q;};\n  switch(s.ats) {\n    case 'workday':method='POST';body={limit:s.page_size,offset,searchText:'',appliedFacets:{}};break;\n    case 'smartrecruiters':add('limit='+s.page_size+'&offset='+offset);break;\n    case 'oracle':add('onlyData=true&expand=requisitionList&finder='+encodeURIComponent('findReqs;siteNumber='+s.site+',limit='+s.page_size+',offset='+offset));break;\n    case 'jibe':add('page='+(page+1)+'&limit='+s.page_size);break;\n    case 'amazon':add('offset='+offset+'&result_limit='+s.page_size+'&sort=recent');break;\n    case 'bytedance':method='POST';body={keyword:'',limit:s.page_size,offset};break;\n    case 'adp':add('$top='+s.page_size+'&$skip='+offset);break;\n    case 'ukg':method='POST';body={opportunitySearch:{Top:s.page_size,Skip:offset,QueryString:'',OrderBy:[{Value:'postedDateDesc',PropertyName:'PostedDate',Ascending:false}]}};break;\n    case 'google':add('page='+(page+1));break;\n    case 'staples':add('p='+(page+1));break;\n  }\n  return {kind:'request',source:s,page,url,method,body,headers:{Accept:'application/json,text/html','User-Agent':'Mozilla/5.0',...(s.headers||{})}};\n}\nfunction normalize(s,j) {\n  let id,title,location,url,description='',posted='',detail='',countries=[],locations=[];\n  switch(s.ats) {\n    case 'greenhouse':id=j.id;title=j.title;location=j.location?.name;url=j.absolute_url;description=j.content;posted=j.first_published||'';break;\n    case 'workday':id=j.externalPath;title=j.title;location=j.locationsText;url=s.careers_url+j.externalPath;detail=s.api_url.replace(/\\/jobs$/,'')+j.externalPath;break;\n    case 'smartrecruiters':id=j.id;title=j.name;location=[j.location?.city,j.location?.region,j.location?.country].filter(Boolean).join(', ');countries=[j.location?.country];url='https://jobs.smartrecruiters.com/'+s.board+'/'+j.id;detail='https://api.smartrecruiters.com/v1/companies/'+s.board+'/postings/'+j.id;posted=j.releasedDate;break;\n    case 'oracle':id=j.Id;title=j.Title;location=j.PrimaryLocation;countries=[j.PrimaryLocationCountry];url=s.careers_url+'/job/'+j.Id;detail=s.api_url.replace('recruitingCEJobRequisitions','recruitingCEJobRequisitionDetails')+'?onlyData=true&expand=all&finder='+encodeURIComponent('ById;Id='+j.Id+',siteNumber='+s.site);posted=j.PostedDate;break;\n    case 'jibe':id=j.req_id||j.slug;title=j.title;location=[j.city,j.state,j.country].filter(Boolean).join(', ');countries=[j.country];url=j.apply_url||s.careers_url+'/'+j.slug;description=j.description;posted=j.create_date||'';break;\n    case 'amazon':id=j.id_icims||j.id;title=j.title;location=j.location;countries=[j.country_code];url='https://www.amazon.jobs'+j.job_path;description=[j.description,j.basic_qualifications,j.preferred_qualifications].join('\\n');posted=j.posted_date;break;\n    case 'bytedance':id=j.id;title=j.title;{let p=j.city_info;const parts=[];while(p){parts.push(p.en_name||p.name);p=p.parent;}location=parts.join(', ');if(parts.length)countries=[parts[parts.length-1]];}url=s.careers_url+'/'+j.id;description=[j.description,j.requirement].join('\\n');break;\n    case 'adp':id=j.itemID;title=j.requisitionTitle;locations=(j.requisitionLocations||[]).map(l=>l.nameCode?.shortName||[l.address?.cityName,l.address?.countrySubdivisionLevel1?.codeValue,l.address?.countryCode].filter(Boolean).join(', '));location=locations.join('; ');posted=j.postDate;{const ext=j.customFieldGroup?.stringFields?.find(f=>f.nameCode?.codeValue==='ExternalJobID')?.stringValue;url=s.careers_url+'&jobId='+encodeURIComponent(ext||id);}detail=s.api_url.replace('/job-requisitions?','/job-requisitions/'+encodeURIComponent(id)+'?');break;\n    case 'ukg':id=j.Id;title=j.Title;locations=(j.Locations||[]).map(l=>[l.Address?.City,l.Address?.State?.Name,l.Address?.Country?.Name].filter(Boolean).join(', '));countries=(j.Locations||[]).map(l=>l.Address?.Country?.Code);location=locations.join('; ');url=s.careers_url+'/OpportunityDetail?opportunityId='+id;detail=url;posted=j.PostedDate;break;\n    case 'google':id=j[0];title=j[1];locations=(j[9]||[]).map(l=>l[0]);countries=(j[9]||[]).map(l=>l[5]);location=locations.join('; ');url=s.careers_url+id;description=[j[3]?.[1],j[4]?.[1],j[10]?.[1],j[15]?.[1]].filter(Boolean).join('\\n');posted=j[12]?.[0]?new Date(j[12][0]*1000).toISOString():'';break;\n    case 'staples':id=j.id;title=j.title;location=j.location;url=j.url;detail=url;break;\n    default:throw new Error('No job parser for '+s.ats);\n  }\n  if(!id||!title||!/^https:\\/\\//.test(url||''))throw new Error('Job is missing its ID, title or HTTPS application URL');\n  return {kind:'job',job_key:s.company+':'+s.ats+':'+id,company:s.company,ats:s.ats,job_title:title,location:location||'',locations:locations.length?locations:[location||''],country_codes:countries.filter(Boolean),apply_url:url,posted_date:posted||'',updated_at:j.updated_at||'',description:clean(description).slice(0,13000),detail_url:detail,first_seen:new Date().toISOString(),match_score:0,sponsorship_status:'not_specified',reason:'',notified:false};\n}\nfunction jsonLdJobs(html) {\n  const found=[];\n  function walk(x){if(!x||typeof x!=='object')return;if(x['@type']==='JobPosting'||x['@type']?.includes?.('JobPosting'))found.push(x);for(const v of Object.values(x))if(v&&typeof v==='object')Array.isArray(v)?v.forEach(walk):walk(v);}\n  for(const m of String(html).matchAll(/<script\\b[^>]*type=[\"']application\\/ld\\+json[\"'][^>]*>([\\s\\S]*?)<\\/script>/gi)){try{walk(JSON.parse(m[1]));}catch{}}\n  return found;\n}\nfunction embeddedObject(html,marker) {\n  const start=String(html).indexOf(marker);if(start<0)throw new Error('Embedded job detail not found');\n  const text=String(html).slice(start+marker.length).trimStart();let depth=0,quoted=false,escaped=false;\n  for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(escaped)escaped=false;else if(c==='\\\\')escaped=true;else if(c==='\"')quoted=false;}else if(c==='\"')quoted=true;else if(c==='{')depth++;else if(c==='}'&&--depth===0)return JSON.parse(text.slice(0,i+1));}\n  throw new Error('Incomplete embedded detail JSON');\n}\nfunction enrich(job,b) {\n  let description='',posted=job.posted_date,location=job.location,locations=job.locations,countries=job.country_codes;\n  switch(job.ats){\n    case 'workday':{const d=b.jobPostingInfo;if(!d?.jobDescription)throw new Error('Workday detail missing description');description=d.jobDescription;posted=d.startDate||posted;locations=[d.location,...(d.additionalLocations||[])].filter(Boolean);location=locations.join('; ');countries=[typeof d.country==='object'?(d.country.descriptor||d.country.id):d.country].filter(Boolean);break;}\n    case 'smartrecruiters':{const d=b.jobAd?.sections;if(!d)throw new Error('SmartRecruiters detail missing jobAd');description=Object.values(d).map(x=>x.text||'').join('\\n');break;}\n    case 'oracle':{const d=b.items?.[0];if(!d)throw new Error('Oracle detail missing item');description=[d.ExternalDescriptionStr,d.ExternalQualificationsStr,d.ExternalResponsibilitiesStr].filter(Boolean).join('\\n');break;}\n    case 'adp':description=b.requisitionDescription||b.requisitionDescriptionText||b.jobDescription||'';if(typeof description==='object')description=description.formattedDescription||description.textValue||'';break;\n    case 'ukg':{const d=embeddedObject(b,'new US.Opportunity.CandidateOpportunityDetail(');description=d.Description;posted=d.PostedDate||posted;break;}\n    case 'staples':{const d=jsonLdJobs(b)[0];if(!d)throw new Error('JobPosting structured description not found');description=d.description;posted=d.datePosted||posted;break;}\n    default:throw new Error('Unsupported job details '+job.ats);\n  }\n  description=clean(description);if(!description)throw new Error('Empty full job description');\n  return {...job,description:description.slice(0,13000),location,locations,country_codes:countries,posted_date:posted,detail_url:''};\n}\n\nreturn $input.all().map((item,i)=>{const job=$('Description requests').itemMatching(i).json;try{return {json:enrich(job,bodyOf(item.json)),pairedItem:{item:i}};}catch(e){return {json:{kind:'detail_error',company:job.company,job_key:job.job_key,apply_url:job.apply_url,error:e.message},pairedItem:{item:i}};}});"
+      },
+      "position": [
+        1880,
+        -480
+      ]
+    },
+    {
+      "id": "f0ce7f88-82ff-45d9-b07e-2cb8c604554e",
+      "name": "Description failures",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return $input.all().filter(x=>x.json.kind==='detail_error');"
+      },
+      "position": [
+        1640,
+        -160
+      ]
+    },
+    {
+      "id": "fc574cda-d260-40b5-9b81-654484a16722",
+      "name": "Combine complete descriptions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const ready=$('Description batch').first().json.jobs.filter(j=>!j.detail_url);const enriched=$input.all().map(x=>x.json).filter(j=>j.kind==='job');return [...ready,...enriched].map(json=>({json}));"
+      },
+      "position": [
+        2120,
+        -400
+      ]
+    },
+    {
+      "id": "6ea1c934-97cb-4e25-b009-47bb9620638b",
+      "name": "Coverage and setup notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "parameters": {
+        "content": "## Expanded company monitoring\n35 companies retained. See Source setup report and Source coverage report.\n30 job collectors + Godrej Americas no-open-positions check.\nExcluded by request: FMA Logistics, Sterling/EverBank, Meta, Whirlpool. No setup action required.\nFull descriptions are fetched before scoring. Failed descriptions are excluded and reported.\nPublic endpoint checks and local parser tests are complete; run manually in n8n before enabling.\nWorkday/Amazon may cap search results; see coverage warnings.",
+        "height": 330,
+        "width": 620
+      },
+      "position": [
+        -1000,
+        -1030
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 30 minutes": {
+      "main": [
+        [
+          {
+            "node": "Company sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Children's Mercy pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Title & US prefilter": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Only unseen IDs": {
+      "main": [
+        [
+          {
+            "node": "Gemini eligibility scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep qualified jobs": {
+      "main": [
+        [
+          {
+            "node": "Build Email Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail new-job alert": {
+      "main": [
+        [
+          {
+            "node": "Prepare saved record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare saved record": {
+      "main": [
+        [
+          {
+            "node": "Save notified job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini eligibility scoring": {
+      "main": [
+        [
+          {
+            "node": "Parse AI decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email Digest": {
+      "main": [
+        [
+          {
+            "node": "Gmail new-job alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI decisions": {
+      "main": [
+        [
+          {
+            "node": "Keep qualified jobs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Keep rejected jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep rejected jobs": {
+      "main": [
+        [
+          {
+            "node": "Upsert row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Children's Mercy jobs": {
+      "main": [
+        [
+          {
+            "node": "Normalize Children's Mercy jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Children's Mercy pages": {
+      "main": [
+        [
+          {
+            "node": "Fetch Children's Mercy jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Children's Mercy jobs": {
+      "main": [
+        [
+          {
+            "node": "Filter CMH engineering jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter CMH engineering jobs": {
+      "main": [
+        [
+          {
+            "node": "Fetch CMH job details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch CMH job details": {
+      "main": [
+        [
+          {
+            "node": "Extract CMH descriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract CMH descriptions": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Only unseen IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company sources": {
+      "main": [
+        [
+          {
+            "node": "Enabled source requests",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Source setup report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enabled source requests": {
+      "main": [
+        [
+          {
+            "node": "Fetch first source pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch first source pages": {
+      "main": [
+        [
+          {
+            "node": "Plan source pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan source pages": {
+      "main": [
+        [
+          {
+            "node": "First page failures",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Page requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Page requests": {
+      "main": [
+        [
+          {
+            "node": "Fetch all source pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch all source pages": {
+      "main": [
+        [
+          {
+            "node": "Normalize company pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize company pages": {
+      "main": [
+        [
+          {
+            "node": "Source coverage report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Engineering title candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Engineering title candidates": {
+      "main": [
+        [
+          {
+            "node": "Description batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Description batch": {
+      "main": [
+        [
+          {
+            "node": "Needs full description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs full description": {
+      "main": [
+        [
+          {
+            "node": "Description requests",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Combine complete descriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Description requests": {
+      "main": [
+        [
+          {
+            "node": "Fetch full descriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch full descriptions": {
+      "main": [
+        [
+          {
+            "node": "Enrich full descriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich full descriptions": {
+      "main": [
+        [
+          {
+            "node": "Description failures",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combine complete descriptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine complete descriptions": {
+      "main": [
+        [
+          {
+            "node": "Title & US prefilter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timezone": "America/Chicago"
+  },
+  "nodeGroups": [],
+  "tags": []
+}

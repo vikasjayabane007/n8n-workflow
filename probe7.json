@@ -1,0 +1,6 @@
+[
+ ["CBIZ-api","https://ebez.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=findReqs;siteNumber=CX_1,limit=25,offset=0",null],
+ ["Staples-page2","https://careers.staples.com/en/search-jobs?p=2",null],
+ ["Google-page2","https://www.google.com/about/careers/applications/jobs/results/?page=2",null],
+ ["PSI-api","https://psionline.rec.pro.ukg.net/PSI1500PSIL/JobBoard/287b933d-50bd-4acb-b709-75def54bf55f/JobBoardView/LoadSearchResults",{"opportunitySearch":{"Top":50,"Skip":0,"QueryString":"","OrderBy":[{"Value":"postedDateDesc","PropertyName":"PostedDate","Ascending":false}]}}]
+]

@@ -1,0 +1,211 @@
+{
+  "date": "2026-10-09",
+  "fixture_jobs": 3325,
+  "detail_adapters_checked": 18,
+  "companies": [
+    {
+      "company": "AbbVie",
+      "jobs_on_fixture_page": 100,
+      "total": 1896,
+      "details_verified": true
+    },
+    {
+      "company": "Thermo Fisher Scientific",
+      "jobs_on_fixture_page": 20,
+      "total": 2937,
+      "details_verified": true
+    },
+    {
+      "company": "BNY",
+      "jobs_on_fixture_page": 25,
+      "total": 1368,
+      "details_verified": true
+    },
+    {
+      "company": "Optiv",
+      "jobs_on_fixture_page": 20,
+      "total": 49,
+      "details_verified": true
+    },
+    {
+      "company": "BJC HealthCare",
+      "jobs_on_fixture_page": 100,
+      "total": 1225,
+      "details_verified": false
+    },
+    {
+      "company": "Saint Luke's",
+      "jobs_on_fixture_page": 20,
+      "total": 544,
+      "details_verified": true
+    },
+    {
+      "company": "Lyft",
+      "jobs_on_fixture_page": 190,
+      "total": 190,
+      "details_verified": false
+    },
+    {
+      "company": "CBIZ",
+      "jobs_on_fixture_page": 25,
+      "total": 230,
+      "details_verified": true
+    },
+    {
+      "company": "Freddie Mac",
+      "jobs_on_fixture_page": 20,
+      "total": 91,
+      "details_verified": true
+    },
+    {
+      "company": "nbkc bank",
+      "jobs_on_fixture_page": 7,
+      "total": 7,
+      "details_verified": true
+    },
+    {
+      "company": "PSI Services",
+      "jobs_on_fixture_page": 50,
+      "total": 61,
+      "details_verified": true
+    },
+    {
+      "company": "Jabil",
+      "jobs_on_fixture_page": 20,
+      "total": 2000,
+      "details_verified": true
+    },
+    {
+      "company": "Highmark",
+      "jobs_on_fixture_page": 20,
+      "total": 1924,
+      "details_verified": true
+    },
+    {
+      "company": "Humana",
+      "jobs_on_fixture_page": 20,
+      "total": 289,
+      "details_verified": true
+    },
+    {
+      "company": "Staples",
+      "jobs_on_fixture_page": 15,
+      "total": 345,
+      "details_verified": true
+    },
+    {
+      "company": "U-Haul",
+      "jobs_on_fixture_page": 20,
+      "total": 2000,
+      "details_verified": true
+    },
+    {
+      "company": "TikTok",
+      "jobs_on_fixture_page": 100,
+      "total": 4274,
+      "details_verified": false
+    },
+    {
+      "company": "Amazon",
+      "jobs_on_fixture_page": 100,
+      "total": 10000,
+      "details_verified": false
+    },
+    {
+      "company": "ByteDance",
+      "jobs_on_fixture_page": 100,
+      "total": 1430,
+      "details_verified": false
+    },
+    {
+      "company": "DoorDash",
+      "jobs_on_fixture_page": 466,
+      "total": 466,
+      "details_verified": false
+    },
+    {
+      "company": "Google",
+      "jobs_on_fixture_page": 20,
+      "total": 3281,
+      "details_verified": false
+    },
+    {
+      "company": "Epiq",
+      "jobs_on_fixture_page": 20,
+      "total": 90,
+      "details_verified": true
+    },
+    {
+      "company": "LG",
+      "jobs_on_fixture_page": 119,
+      "total": 119,
+      "details_verified": false
+    },
+    {
+      "company": "Samsung",
+      "jobs_on_fixture_page": 20,
+      "total": 675,
+      "details_verified": true
+    },
+    {
+      "company": "Godrej",
+      "jobs_on_fixture_page": 0,
+      "total": 0,
+      "details_verified": false
+    },
+    {
+      "company": "Topgolf",
+      "jobs_on_fixture_page": 20,
+      "total": 737,
+      "details_verified": true
+    },
+    {
+      "company": "Amcor",
+      "jobs_on_fixture_page": 20,
+      "total": 768,
+      "details_verified": true
+    },
+    {
+      "company": "Databricks",
+      "jobs_on_fixture_page": 890,
+      "total": 890,
+      "details_verified": false
+    },
+    {
+      "company": "Figma",
+      "jobs_on_fixture_page": 151,
+      "total": 151,
+      "details_verified": false
+    },
+    {
+      "company": "Affirm",
+      "jobs_on_fixture_page": 203,
+      "total": 203,
+      "details_verified": false
+    },
+    {
+      "company": "Cloudflare",
+      "jobs_on_fixture_page": 424,
+      "total": 424,
+      "details_verified": false
+    }
+  ],
+  "checks": [
+    "all Code nodes compile",
+    "connection targets valid",
+    "35 companies retained",
+    "HTTP failures rejected",
+    "unknown schemas rejected",
+    "missing descriptions rejected",
+    "pagination URL/body differs",
+    "Google and Staples second pages differ",
+    "US multi-location handling",
+    "staff title exclusion",
+    "output inactive"
+  ],
+  "limitations": [
+    "Not imported or executed in a live n8n instance.",
+    "Fixtures verify listing page one and sample details; not a complete crawl.",
+    "Four sources are intentionally excluded by user request; Godrej checks its no-openings notice only."
+  ]
+}

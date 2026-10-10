@@ -1,0 +1,8 @@
+[
+ ["SaintLukes","https://saintlukes.wd1.myworkdayjobs.com/wday/cxs/saintlukes/saintlukeshealthcareers/jobs",{"limit":20,"offset":0,"searchText":"","appliedFacets":{}}],
+ ["BJC-api","https://jobs.bjc.org/api/jobs?page=1&limit=100",null],
+ ["Whirlpool-api","https://jobs.whirlpool.com/api/apply/v2/jobs?domain=whirlpool.com&start=0&num=100",null],
+ ["BNY-api","https://eofe.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=findReqs;siteNumber=BNY-Careers,limit=25,offset=0",null],
+ ["LG-search","https://lge-careers.com/search/",null],
+ ["n8n-http","https://raw.githubusercontent.com/n8n-io/n8n/master/packages/nodes-base/nodes/HttpRequest/V3/Description.ts",null]
+]

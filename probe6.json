@@ -1,0 +1,6 @@
+[
+ ["ByteDance-api","https://jobs.bytedance.com/api/v1/public/supplier/search/job/posts",{"keyword":"","limit":100,"offset":0},{"website-path":"en","Accept-Language":"en-US","Origin":"https://joinbytedance.com"}],
+ ["LG-greenhouse","https://boards-api.greenhouse.io/v1/boards/lgelectronics/jobs?content=true",null],
+ ["EverBank-config","https://myjobs.adp.com/public/staffing/v1/career-site/everbank",null],
+ ["PSI-js","https://rec-cdn-prod.cdn.ultipro.com/rec-web/d52f8adcea7d2d0cc38314ebe4a919860b8540d5/site.min.js",null]
+]

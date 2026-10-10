@@ -1,0 +1,307 @@
+[
+  [
+    "AbbVie-pagecheck",
+    "https://api.smartrecruiters.com/v1/companies/AbbVie/postings?limit=100&offset=100",
+    null,
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Thermo_Fisher_Scientific-pagecheck",
+    "https://thermofisher.wd5.myworkdayjobs.com/wday/cxs/thermofisher/ThermoFisherCareers/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "BNY-pagecheck",
+    "https://eofe.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=findReqs%3BsiteNumber%3DBNY-Careers%2Climit%3D25%2Coffset%3D25",
+    null,
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Optiv-pagecheck",
+    "https://optiv.wd5.myworkdayjobs.com/wday/cxs/optiv/Optiv_Careers/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "BJC_HealthCare-pagecheck",
+    "https://jobs.bjc.org/api/jobs?page=2&limit=100",
+    null,
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "BJC_HealthCare-applycheck",
+    "https://careers-bjc.icims.com/jobs/116626/login",
+    null
+  ],
+  [
+    "Saint_Luke_s-pagecheck",
+    "https://saintlukes.wd1.myworkdayjobs.com/wday/cxs/saintlukes/saintlukeshealthcareers/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "CBIZ-pagecheck",
+    "https://ebez.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=findReqs%3BsiteNumber%3DCX_1%2Climit%3D25%2Coffset%3D25",
+    null,
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Freddie_Mac-pagecheck",
+    "https://freddiemac.wd5.myworkdayjobs.com/wday/cxs/freddiemac/External/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "PSI_Services-pagecheck",
+    "https://psionline.rec.pro.ukg.net/PSI1500PSIL/JobBoard/287b933d-50bd-4acb-b709-75def54bf55f/JobBoardView/LoadSearchResults",
+    {
+      "opportunitySearch": {
+        "Top": 50,
+        "Skip": 50,
+        "QueryString": "",
+        "OrderBy": [
+          {
+            "Value": "postedDateDesc",
+            "PropertyName": "PostedDate",
+            "Ascending": false
+          }
+        ]
+      }
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Jabil-pagecheck",
+    "https://jabil.wd5.myworkdayjobs.com/wday/cxs/jabil/Jabil_Careers/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Highmark-pagecheck",
+    "https://highmarkhealth.wd1.myworkdayjobs.com/wday/cxs/highmarkhealth/highmark/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Humana-pagecheck",
+    "https://humana.wd5.myworkdayjobs.com/wday/cxs/humana/Humana_External_Career_Site/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Staples-pagecheck",
+    "https://careers.staples.com/en/search-jobs?p=2",
+    null,
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "U_Haul-pagecheck",
+    "https://uhaul.wd1.myworkdayjobs.com/wday/cxs/uhaul/UhaulJobs/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "TikTok-pagecheck",
+    "https://api.lifeattiktok.com/api/v1/public/supplier/search/job/posts",
+    {
+      "keyword": "",
+      "limit": 100,
+      "offset": 100
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0",
+      "website-path": "tiktok",
+      "Accept-Language": "en-US",
+      "Origin": "https://lifeattiktok.com"
+    }
+  ],
+  [
+    "TikTok-applycheck",
+    "https://lifeattiktok.com/search/7690657758422927621",
+    null
+  ],
+  [
+    "Amazon-pagecheck",
+    "https://www.amazon.jobs/en/search.json?offset=100&result_limit=100&sort=recent",
+    null,
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "ByteDance-pagecheck",
+    "https://jobs.bytedance.com/api/v1/public/supplier/search/job/posts",
+    {
+      "keyword": "",
+      "limit": 100,
+      "offset": 100
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0",
+      "website-path": "en",
+      "Accept-Language": "en-US",
+      "Origin": "https://joinbytedance.com"
+    }
+  ],
+  [
+    "ByteDance-applycheck",
+    "https://joinbytedance.com/search/7679892629651310901",
+    null
+  ],
+  [
+    "Google-pagecheck",
+    "https://www.google.com/about/careers/applications/jobs/results/?page=2",
+    null,
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Google-applycheck",
+    "https://www.google.com/about/careers/applications/jobs/results/73305472681026246",
+    null
+  ],
+  [
+    "Epiq-pagecheck",
+    "https://epiqsystems.wd503.myworkdayjobs.com/wday/cxs/epiqsystems/Epiq_Careers/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Samsung-pagecheck",
+    "https://sec.wd3.myworkdayjobs.com/wday/cxs/sec/Samsung_Careers/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Topgolf-pagecheck",
+    "https://topgolf.wd501.myworkdayjobs.com/wday/cxs/topgolf/TopgolfCareers/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ],
+  [
+    "Amcor-pagecheck",
+    "https://amcor.wd5.myworkdayjobs.com/wday/cxs/amcor/Amcor_External_Career_Site/jobs",
+    {
+      "limit": 20,
+      "offset": 20,
+      "searchText": "",
+      "appliedFacets": {}
+    },
+    {
+      "Accept": "application/json,text/html",
+      "User-Agent": "Mozilla/5.0"
+    }
+  ]
+]
