@@ -37,7 +37,7 @@ for(const s of sources.filter(s=>s.enabled)){
  if(!['greenhouse','notice'].includes(s.ats))assert(JSON.stringify(a.body)!==JSON.stringify(b.body)||a.url!==b.url,s.company+' page request');
 }
 const names=new Set(w.nodes.map(n=>n.name));assert.equal(names.size,w.nodes.length);
-for(const name of ['Fetch first source pages','Fetch full descriptions']) {
+for(const name of ['Fetch first source pages']) {
  const p=w.nodes.find(n=>n.name===name).parameters;
  assert.equal(p.options.response.response.outputPropertyName,'body',name+' response field');
  if(name!=='Fetch full descriptions'){assert.equal(p.contentType,'json',name+' JSON content type');assert.equal(p.specifyBody,'json');}
@@ -65,7 +65,7 @@ assert.equal(executor.type,'n8n-nodes-base.executeWorkflow');
 assert.equal(executor.parameters.mode,'once');
 const pageLoop=w.nodes.find(n=>n.name==='Loop source pages');
 assert.equal(pageLoop.typeVersion,3);
-assert.equal(pageLoop.parameters.batchSize,1);
+assert.equal(pageLoop.parameters.batchSize,4);
 assert.equal(pageLoop.parameters.options.reset,false);
 const targets=(name,port=0)=>w.connections[name].main[port].map(e=>e.node);
 assert.deepEqual(targets('Page requests'),['Loop source pages']);
@@ -103,8 +103,48 @@ for(const s of sources.filter(s=>s.enabled)){
  assert.equal(failed.length,1);assert.equal(failed[0].json.status,'error');
 }
 function bodyOfForTest(body){return api.bodyOf({body});}
+// Four-page batch: repeated company on two pages, another company, and failure.
+const google=sources.find(s=>s.company==='Google'),figma=sources.find(s=>s.company==='Figma');
+const pageSources=[google,google,figma,figma];
+const pageBodies=[read('Google'),read('Google-page2'),read(figma.fixture),'denied'];
+const mixed=new Function('$input','$',workerCode)(
+ {all:()=>pageBodies.map((body,i)=>({json:{body,statusCode:i===3?403:200}}))},
+ ()=>({itemMatching:i=>({json:{source:pageSources[i],page:i,expected_pages:2}})}));
+for(let i=0;i<4;i++){
+ const status=mixed.find(x=>x.json.kind==='page_status'&&x.json.page===i);
+ assert(status);assert.equal(status.pairedItem.item,i);
+ const keys=i===3?[]:Array.from(api.listing(pageSources[i],api.bodyOf({body:pageBodies[i]})).jobs,j=>api.normalize(pageSources[i],j).job_key);
+ assert.deepEqual(status.json.job_keys,keys);
+}
+for(const item of mixed.filter(x=>x.json.kind==='job')){
+ const i=item.pairedItem.item;assert(i>=0&&i<3);
+ assert.equal(item.json.company,pageSources[i].company);
+}
+const detailExecutor=w.nodes.find(n=>n.name==='Fetch full descriptions');
+assert.equal(detailExecutor.parameters.mode,'once');
+assert.equal(detailExecutor.parameters.options.waitForSubWorkflow,true);
+assert.equal(w.nodes.find(n=>n.name==='Loop description batches').parameters.batchSize,2);
+assert.deepEqual(targets('Description requests'),['Loop description batches']);
+assert.deepEqual(targets('Loop description batches',1),['Fetch full descriptions']);
+assert.deepEqual(targets('Fetch full descriptions'),['Enrich full descriptions']);
+assert.deepEqual(targets('Enrich full descriptions'),['Loop description batches']);
+assert.deepEqual(targets('Loop description batches'),['Description failures','Combine complete descriptions']);
+const detailWorker=JSON.parse(detailExecutor.parameters.workflowJson);
+const detailParser=detailWorker.nodes.find(n=>n.type==='n8n-nodes-base.code').parameters.jsCode;
+const samples=sources.filter(s=>s.enabled).flatMap(s=>{
+ const first=api.listing(s,api.bodyOf({body:read(s.fixture)})).jobs[0];if(!first)return [];
+ const job=api.normalize(s,first);return job.detail_url?[{job,body:read(s.detail_fixture||s.fixture+'-detail')}]:[];
+});
+for(let start=0;start<samples.length;start+=2){
+ const batch=samples.slice(start,start+2);
+ const run=fail=>new Function('$input','$',detailParser)({all:()=>batch.map((s,i)=>({json:{body:s.body,statusCode:fail&&i===0?403:200}}))},()=>({itemMatching:i=>({json:batch[i].job})}));
+ for(const [i,item] of run(false).entries()){
+  assert.equal(item.json.job_key,batch[i].job.job_key);assert.equal(item.pairedItem.item,i);
+  assert(item.json.description.length>100);assert(!('body' in item.json));
+ }
+ assert.equal(run(true)[0].json.kind,'detail_error');
+}
 assert(compactBytes<rawBytes,'Worker must reduce fixture payload');
 console.log(`Page worker fixture payload: ${rawBytes} raw bytes -> ${compactBytes} returned bytes.`);
 fs.writeFileSync('validation-report.json',JSON.stringify({date:'2026-10-09',fixture_jobs:count,detail_adapters_checked:detailCount,companies:report,checks:['all Code nodes compile','connection targets valid','35 companies retained','HTTP failures rejected','unknown schemas rejected','missing descriptions rejected','pagination URL/body differs','Google and Staples second pages differ','US multi-location handling','staff title exclusion','output inactive'],limitations:['Not imported or executed in a live n8n instance.','Fixtures verify listing page one and sample details; not a complete crawl.','Four sources are intentionally excluded by user request; Godrej checks its no-openings notice only.']},null,2)+'\n');
 console.log(`PASS: ${count} real listing records, ${detailCount} detail samples, ${paginationChecks} live second pages, all Code nodes, graph, filter and empty-branch checks.`);
-

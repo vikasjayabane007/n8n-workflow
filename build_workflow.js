@@ -78,8 +78,9 @@ pageHttp.name='Fetch one page';pageHttp.position=[260,0];
 const normalizePage=node('Normalize company pages').parameters.jsCode.replace("$('Page requests').itemMatching(i)","$('Page input').itemMatching(i)");
 const filterPage=node('Engineering title candidates').parameters.jsCode;
 const compactPage=normalizePage.replace('return out;',`const statuses=out.filter(x=>x.json.kind==='page_status');
-for(const item of statuses)item.json.job_keys=out.filter(x=>x.json.kind==='job').map(x=>x.json.job_key);
+for(const item of statuses)item.json.job_keys=out.filter(x=>x.json.kind==='job' && x.pairedItem.item===item.pairedItem.item).map(x=>x.json.job_key);
 const candidates=(function($input){${filterPage}})({all:()=>out});
+for(const item of candidates)item.pairedItem=out.find(x=>x.json.kind==='job' && x.json.job_key===item.json.job_key).pairedItem;
 return [...statuses,...candidates];`);
 const worker={name:'Fetch and filter one source page',active:false,nodes:[
  {id:crypto.randomUUID(),name:'Page input',type:'n8n-nodes-base.executeWorkflowTrigger',typeVersion:1,parameters:{},position:[0,0]},
@@ -90,7 +91,8 @@ const pageExecutor=node('Fetch all source pages');
 pageExecutor.type='n8n-nodes-base.executeWorkflow';pageExecutor.typeVersion=1.3;
 pageExecutor.parameters={source:'parameter',workflowJson:JSON.stringify(worker),mode:'once',options:{waitForSubWorkflow:true}};
 delete pageExecutor.retryOnFail;delete pageExecutor.maxTries;delete pageExecutor.waitBetweenTries;
-const pageLoop=add('Loop source pages','splitInBatches',{batchSize:1,options:{reset:false}},[180,-620]);
+delete pageExecutor.onError;
+const pageLoop=add('Loop source pages','splitInBatches',{batchSize:4,options:{reset:false}},[180,-620]);
 pageLoop.typeVersion=3;
 reset('Page requests');connect('Page requests','Loop source pages');
 // v3 output 0 is done; output 1 is loop. Normalize errors before returning
@@ -105,7 +107,28 @@ node('Normalize company pages').parameters.jsCode=`return $input.all().map((item
  return {json:{kind:'page_status',company:req.source.company,page:req.page,status:'error',error:String(item.json.error||'Page worker failed'),expected_pages:req.expected_pages},pairedItem:{item:i}};
 });`;
 node('Source coverage report').parameters.jsCode=node('Source coverage report').parameters.jsCode.replace('new Set(jobs.map(j=>j.job_key)).size','new Set(pages.flatMap(p=>p.job_keys||[])).size');
-node('Coverage and setup notes').parameters.content+='\nListing pages run sequentially in an embedded worker. Only title candidates and coverage IDs return to the parent. No second workflow import is required.';
+// Fetch and parse descriptions inside bounded child executions as well.
+const detailHttp=structuredClone(node('Fetch full descriptions'));
+detailHttp.name='Fetch description batch';detailHttp.position=[260,0];
+detailHttp.parameters.options.batching.batch.batchSize=2;
+const detailCode=node('Enrich full descriptions').parameters.jsCode.replace("$('Description requests').itemMatching(i)","$('Description input').itemMatching(i)");
+const detailWorker={name:'Fetch and parse description batch',active:false,nodes:[
+ {id:crypto.randomUUID(),name:'Description input',type:'n8n-nodes-base.executeWorkflowTrigger',typeVersion:1,parameters:{},position:[0,0]},
+ detailHttp,
+ {id:crypto.randomUUID(),name:'Parse description batch',type:'n8n-nodes-base.code',typeVersion:2,parameters:{jsCode:detailCode},position:[520,0]}
+],connections:{'Description input':{main:[[{node:'Fetch description batch',type:'main',index:0}]]},'Fetch description batch':{main:[[{node:'Parse description batch',type:'main',index:0}]]}},settings:structuredClone(worker.settings)};
+const detailExecutor=node('Fetch full descriptions');
+detailExecutor.type='n8n-nodes-base.executeWorkflow';detailExecutor.typeVersion=1.3;
+detailExecutor.parameters={source:'parameter',workflowJson:JSON.stringify(detailWorker),mode:'once',options:{waitForSubWorkflow:true}};
+for(const key of ['retryOnFail','maxTries','waitBetweenTries','onError'])delete detailExecutor[key];
+const detailLoop=add('Loop description batches','splitInBatches',{batchSize:2,options:{reset:false}},[1420,-700]);detailLoop.typeVersion=3;
+reset('Description requests');connect('Description requests','Loop description batches');
+connect('Loop description batches','Fetch full descriptions',0,1);
+node('Enrich full descriptions').parameters.jsCode='return $input.all(); // Parsing occurs inside the description worker.';
+reset('Enrich full descriptions');connect('Enrich full descriptions','Loop description batches');
+connect('Loop description batches','Description failures',0,0);
+connect('Loop description batches','Combine complete descriptions',0,0);
+node('Coverage and setup notes').parameters.content+='\nListing batches: 4 pages. Description batches: 2 jobs. Embedded workers return parsed results only. Worker crashes stop execution; ordinary HTTP failures remain diagnostic records. No second import required.';
 w.name='US Engineering Job Monitor — 30 Minutes (expanded company sources)';w.active=false;delete w.id;delete w.versionId;delete w.meta;w.pinData={};w.settings.timezone='America/Chicago';
 fs.writeFileSync('US Engineering Job Monitor - expanded company sources.json',JSON.stringify(w,null,2)+'\n');
 console.log(JSON.stringify({companies:sources.length,jobCollectors:sources.filter(s=>s.enabled&&s.ats!=='notice').length,noticeChecks:sources.filter(s=>s.ats==='notice').length,excluded:sources.filter(s=>!s.enabled).map(s=>s.company),nodes:w.nodes.length}));
