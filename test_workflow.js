@@ -62,7 +62,17 @@ assert.equal(combine([{kind:'job',detail_url:'https://example.test'}],[{kind:'de
 // Embedded worker returns no raw HTTP bodies and preserves full coverage counts.
 const executor=w.nodes.find(n=>n.name==='Fetch all source pages');
 assert.equal(executor.type,'n8n-nodes-base.executeWorkflow');
-assert.equal(executor.parameters.mode,'each');
+assert.equal(executor.parameters.mode,'once');
+const pageLoop=w.nodes.find(n=>n.name==='Loop source pages');
+assert.equal(pageLoop.typeVersion,3);
+assert.equal(pageLoop.parameters.batchSize,1);
+assert.equal(pageLoop.parameters.options.reset,false);
+const targets=(name,port=0)=>w.connections[name].main[port].map(e=>e.node);
+assert.deepEqual(targets('Page requests'),['Loop source pages']);
+assert.deepEqual(targets('Loop source pages',1),['Fetch all source pages']);
+assert.deepEqual(targets('Fetch all source pages'),['Normalize company pages']);
+assert.deepEqual(targets('Normalize company pages'),['Loop source pages']);
+assert.deepEqual(targets('Loop source pages'),['Source coverage report','Engineering title candidates']);
 assert.equal(executor.parameters.options.waitForSubWorkflow,true);
 const worker=JSON.parse(executor.parameters.workflowJson);
 const workerHttp=worker.nodes.find(n=>n.type==='n8n-nodes-base.httpRequest');

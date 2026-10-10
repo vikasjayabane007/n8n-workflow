@@ -88,8 +88,17 @@ const worker={name:'Fetch and filter one source page',active:false,nodes:[
 ],connections:{'Page input':{main:[[{node:'Fetch one page',type:'main',index:0}]]},'Fetch one page':{main:[[{node:'Return candidates and coverage',type:'main',index:0}]]}},settings:{executionOrder:'v1',saveDataSuccessExecution:'none',saveDataErrorExecution:'none',saveManualExecutions:false,saveExecutionProgress:false}};
 const pageExecutor=node('Fetch all source pages');
 pageExecutor.type='n8n-nodes-base.executeWorkflow';pageExecutor.typeVersion=1.3;
-pageExecutor.parameters={source:'parameter',workflowJson:JSON.stringify(worker),mode:'each',options:{waitForSubWorkflow:true}};
+pageExecutor.parameters={source:'parameter',workflowJson:JSON.stringify(worker),mode:'once',options:{waitForSubWorkflow:true}};
 delete pageExecutor.retryOnFail;delete pageExecutor.maxTries;delete pageExecutor.waitBetweenTries;
+const pageLoop=add('Loop source pages','splitInBatches',{batchSize:1,options:{reset:false}},[180,-620]);
+pageLoop.typeVersion=3;
+reset('Page requests');connect('Page requests','Loop source pages');
+// v3 output 0 is done; output 1 is loop. Normalize errors before returning
+// each worker result so the done output contains only compact job/status data.
+connect('Loop source pages','Fetch all source pages',0,1);
+reset('Normalize company pages');connect('Normalize company pages','Loop source pages');
+connect('Loop source pages','Source coverage report',0,0);
+connect('Loop source pages','Engineering title candidates',0,0);
 node('Normalize company pages').parameters.jsCode=`return $input.all().map((item,i)=>{
  if(item.json.kind)return {json:item.json,pairedItem:{item:i}};
  const req=$('Page requests').itemMatching(i).json;

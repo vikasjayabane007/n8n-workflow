@@ -65,7 +65,7 @@ Also set **Body Content Type: JSON** and **Specify Body: Using JSON** in **Fetch
 
 ## Memory fix for Fetch all source pages
 
-The current export replaces the bulk HTTP request with an embedded page worker, executed once per request sequentially with completion awaited. Each worker fetches and parses one listing page, applies the existing title filter, and returns only candidates plus coverage records. Coverage retains IDs for all parsed jobs, so filtering does not falsely report missing listings. HTTP failures remain visible in coverage. Pagination is unchanged; no pages are silently dropped.
+The current export replaces the bulk HTTP request with an embedded page worker. **Loop source pages** uses batch size 1 and passes each request to **Fetch all source pages**, which uses **Run once with all items** and waits for completion. Results pass through **Normalize company pages** and back into the loop; its **done** output sends the combined results downstream. This avoids the deprecated **Run once for each item** mode. Each worker fetches and parses one listing page, applies the existing title filter, and returns only candidates plus coverage records. Coverage retains IDs for all parsed jobs, so filtering does not falsely report missing listings. HTTP failures remain visible in coverage. Pagination is unchanged; no pages are silently dropped.
 
 Import only **US Engineering Job Monitor - expanded company sources.json**; the worker is embedded and needs no separate import or workflow ID. Save the imported workflow, select credentials and your email recipient, and reuse the existing `monitored_jobs_expanded` table. Disable the older schedule before activating the replacement.
 
