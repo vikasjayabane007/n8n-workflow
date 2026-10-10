@@ -55,8 +55,18 @@ Source references: [Saint Luke's at BJC](https://jobs.bjc.org/saint-lukes-career
 
 ## Fix for a run stopping at Page requests
 
+The instructions in this section apply to older exports where **Fetch all source pages** was an HTTP Request node. In the current export it is an Execute Sub-workflow node; its embedded **Fetch one page** HTTP node already has these settings.
+
 The earlier export expected text HTTP responses in `body`, whereas n8n defaults to `data`. The corrected export explicitly sets `Put Output in Field` to `body` and its parser also accepts the default `data` string.
 
 To repair an already-imported workflow without reimporting, open each of **Fetch first source pages**, **Fetch all source pages**, and **Fetch full descriptions**. Under **Options → Response**, keep **Response Format: Text** and set **Put Output in Field: body**. Rerun the workflow from the beginning so the old response data is replaced. Unpin old response outputs if applicable.
 
 Also set **Body Content Type: JSON** and **Specify Body: Using JSON** in **Fetch first source pages** and **Fetch all source pages**. Keep the existing Send Body expression and JSON body expression. The corrected export explicitly sets `contentType: json`; earlier exports omitted it, which can leave POST bodies incorrectly formatted. These configuration fixes do not resolve a genuine site access restriction such as BJC returning HTTP 403 from the n8n host.
+
+## Memory fix for Fetch all source pages
+
+The current export replaces the bulk HTTP request with an embedded page worker, executed once per request sequentially with completion awaited. Each worker fetches and parses one listing page, applies the existing title filter, and returns only candidates plus coverage records. Coverage retains IDs for all parsed jobs, so filtering does not falsely report missing listings. HTTP failures remain visible in coverage. Pagination is unchanged; no pages are silently dropped.
+
+Import only **US Engineering Job Monitor - expanded company sources.json**; the worker is embedded and needs no separate import or workflow ID. Save the imported workflow, select credentials and your email recipient, and reuse the existing `monitored_jobs_expanded` table. Disable the older schedule before activating the replacement.
+
+Local fixture checks reduced returned listing payload from 38,919,314 bytes to 3,287,329 bytes (about 92%). This is a payload measurement, not a measurement of n8n runtime memory. The Cloud crash fix still needs a live run. First-page discovery, description retrieval, and the inherited Children's Mercy branch can still accumulate data, and large executions can remain slow. This design follows [n8n's sub-workflow memory guidance](https://docs.n8n.io/hosting/scaling/memory-errors/).

@@ -37,7 +37,7 @@ for(const s of sources.filter(s=>s.enabled)){
  if(!['greenhouse','notice'].includes(s.ats))assert(JSON.stringify(a.body)!==JSON.stringify(b.body)||a.url!==b.url,s.company+' page request');
 }
 const names=new Set(w.nodes.map(n=>n.name));assert.equal(names.size,w.nodes.length);
-for(const name of ['Fetch first source pages','Fetch all source pages','Fetch full descriptions']) {
+for(const name of ['Fetch first source pages','Fetch full descriptions']) {
  const p=w.nodes.find(n=>n.name===name).parameters;
  assert.equal(p.options.response.response.outputPropertyName,'body',name+' response field');
  if(name!=='Fetch full descriptions'){assert.equal(p.contentType,'json',name+' JSON content type');assert.equal(p.specifyBody,'json');}
@@ -59,5 +59,42 @@ function combine(jobs,input){return new Function('$input','$',combineCode)({all:
 assert.equal(combine([{kind:'job',job_key:'ready',detail_url:''}],[{kind:'description_batch'}]).length,1);
 assert.equal(combine([{kind:'job',job_key:'ready',detail_url:''},{kind:'job',job_key:'detail',detail_url:'https://example.test'}],[{kind:'job',job_key:'detail',detail_url:''}]).length,2);
 assert.equal(combine([{kind:'job',detail_url:'https://example.test'}],[{kind:'detail_error'}]).length,0);
+// Embedded worker returns no raw HTTP bodies and preserves full coverage counts.
+const executor=w.nodes.find(n=>n.name==='Fetch all source pages');
+assert.equal(executor.type,'n8n-nodes-base.executeWorkflow');
+assert.equal(executor.parameters.mode,'each');
+assert.equal(executor.parameters.options.waitForSubWorkflow,true);
+const worker=JSON.parse(executor.parameters.workflowJson);
+const workerHttp=worker.nodes.find(n=>n.type==='n8n-nodes-base.httpRequest');
+assert.equal(workerHttp.parameters.contentType,'json');
+assert.equal(workerHttp.parameters.options.response.response.outputPropertyName,'body');
+const workerCode=worker.nodes.find(n=>n.type==='n8n-nodes-base.code').parameters.jsCode;
+const workerNames=new Set(worker.nodes.map(n=>n.name));
+for(const [from,c] of Object.entries(worker.connections)){assert(workerNames.has(from));for(const output of c.main)for(const edge of output)assert(workerNames.has(edge.node));}
+const candidateCode=w.nodes.find(n=>n.name==='Engineering title candidates').parameters.jsCode;
+const runPage=(s,response)=>new Function('$input','$',workerCode)({all:()=>[{json:response}]},name=>{
+ assert.equal(name,'Page input');return {itemMatching:()=>({json:{source:s,page:0,expected_pages:1}})};
+});
+let rawBytes=0,compactBytes=0;
+for(const s of sources.filter(s=>s.enabled)){
+ const body=read(s.fixture);const output=runPage(s,{statusCode:200,body});
+ const status=output.find(x=>x.json.kind==='page_status').json;
+ assert.equal(status.status,'ok',s.company);
+ assert.equal(status.job_keys.length,api.listing(s,bodyOfForTest(body)).jobs.length);
+ const allJobs=api.listing(s,bodyOfForTest(body)).jobs.map(j=>({json:api.normalize(s,j)}));
+ const expected=new Function('$input',candidateCode)({all:()=>allJobs});
+ assert.deepEqual(output.filter(x=>x.json.kind==='job').map(x=>x.json.job_key),Array.from(expected,x=>x.json.job_key));
+ const coverage=new Function('$input','$',w.nodes.find(n=>n.name==='Source coverage report').parameters.jsCode)(
+ {all:()=>output},name=>({all:()=>name==='Company sources'?[{json:s}]:[{json:{kind:'plan_status',company:s.company,status:'planned',pages:1,total:status.job_keys.length}}]}));
+ assert.equal(coverage[0].json.unique_jobs,new Set(status.job_keys).size);
+ assert(output.every(x=>!('body' in x.json)&&!('data' in x.json)));
+ rawBytes+=Buffer.byteLength(body);compactBytes+=Buffer.byteLength(JSON.stringify(output));
+ const failed=runPage(s,{statusCode:403,body:'denied'});
+ assert.equal(failed.length,1);assert.equal(failed[0].json.status,'error');
+}
+function bodyOfForTest(body){return api.bodyOf({body});}
+assert(compactBytes<rawBytes,'Worker must reduce fixture payload');
+console.log(`Page worker fixture payload: ${rawBytes} raw bytes -> ${compactBytes} returned bytes.`);
 fs.writeFileSync('validation-report.json',JSON.stringify({date:'2026-10-09',fixture_jobs:count,detail_adapters_checked:detailCount,companies:report,checks:['all Code nodes compile','connection targets valid','35 companies retained','HTTP failures rejected','unknown schemas rejected','missing descriptions rejected','pagination URL/body differs','Google and Staples second pages differ','US multi-location handling','staff title exclusion','output inactive'],limitations:['Not imported or executed in a live n8n instance.','Fixtures verify listing page one and sample details; not a complete crawl.','Four sources are intentionally excluded by user request; Godrej checks its no-openings notice only.']},null,2)+'\n');
 console.log(`PASS: ${count} real listing records, ${detailCount} detail samples, ${paginationChecks} live second pages, all Code nodes, graph, filter and empty-branch checks.`);
+
